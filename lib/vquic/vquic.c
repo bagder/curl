@@ -35,6 +35,7 @@
 #include "dynbuf.h"
 #include "cfilters.h"
 #include "curl_trc.h"
+#include "curl_linux.h"
 #include "curl_msh3.h"
 #include "curl_ngtcp2.h"
 #include "curl_osslq.h"
@@ -68,6 +69,8 @@ void Curl_quic_ver(char *p, size_t len)
   Curl_ngtcp2_ver(p, len);
 #elif defined(USE_OPENSSL_QUIC) && defined(USE_NGHTTP3)
   Curl_osslq_ver(p, len);
+#elif defined(USE_LINUX_QUIC) && defined(USE_NGHTTP3)
+  Curl_linuxq_ver(p, len);
 #elif defined(USE_QUICHE)
   Curl_quiche_ver(p, len);
 #elif defined(USE_MSH3)
@@ -673,6 +676,8 @@ CURLcode Curl_cf_quic_create(struct Curl_cfilter **pcf,
   return Curl_cf_ngtcp2_create(pcf, data, conn, ai);
 #elif defined(USE_OPENSSL_QUIC) && defined(USE_NGHTTP3)
   return Curl_cf_osslq_create(pcf, data, conn, ai);
+#elif defined(USE_LINUX_QUIC) && defined(USE_NGHTTP3)
+  return Curl_cf_linuxq_create(pcf, data, conn, ai);
 #elif defined(USE_QUICHE)
   return Curl_cf_quiche_create(pcf, data, conn, ai);
 #elif defined(USE_MSH3)
@@ -694,6 +699,8 @@ bool Curl_conn_is_http3(const struct Curl_easy *data,
   return Curl_conn_is_ngtcp2(data, conn, sockindex);
 #elif defined(USE_OPENSSL_QUIC) && defined(USE_NGHTTP3)
   return Curl_conn_is_osslq(data, conn, sockindex);
+#elif defined(USE_LINUX_QUIC) && defined(USE_NGHTTP3)
+  return Curl_conn_is_linuxq(data, conn, sockindex);
 #elif defined(USE_QUICHE)
   return Curl_conn_is_quiche(data, conn, sockindex);
 #elif defined(USE_MSH3)

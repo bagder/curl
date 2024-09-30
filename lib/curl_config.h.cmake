@@ -764,6 +764,9 @@ ${SIZEOF_TIME_T_CODE}
 /* to enable openssl + nghttp3 */
 #cmakedefine USE_OPENSSL_QUIC 1
 
+/* to enable linux quic + nghttp3 */
+#cmakedefine USE_LINUX_QUIC 1
+
 /* Define to 1 if you have the quiche_conn_set_qlog_fd function. */
 #cmakedefine HAVE_QUICHE_CONN_SET_QLOG_FD 1
 
