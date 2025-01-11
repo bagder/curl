@@ -41,6 +41,7 @@
 #include "tool_main.h"
 #include "dynbuf.h"
 #include "tool_stderr.h"
+#include "strparse.h"
 #include "var.h"
 
 #include "memdebug.h" /* keep this as LAST include */
@@ -335,6 +336,7 @@ static const struct LongShort aliases[]= {
   {"trace-time",                 ARG_BOOL, ' ', C_TRACE_TIME},
   {"unix-socket",                ARG_FILE, ' ', C_UNIX_SOCKET},
   {"upload-file",                ARG_FILE, 'T', C_UPLOAD_FILE},
+  {"upload-flags",               ARG_STRG, ' ', C_UPLOAD_FLAGS},
   {"url",                        ARG_STRG, ' ', C_URL},
   {"url-query",                  ARG_STRG, ' ', C_URL_QUERY},
   {"use-ascii",                  ARG_BOOL, 'B', C_USE_ASCII},
@@ -1557,6 +1559,61 @@ static ParameterError parse_time_cond(struct GlobalConfig *global,
             "See curl_getdate(3) for valid date syntax.");
     }
   }
+  return err;
+}
+
+static ParameterError parse_upload_flags(struct OperationConfig *config,
+                                      char *nextarg)
+{
+  struct Curl_str segment;
+  ParameterError err = PARAM_OK;
+  bool negative = FALSE;
+
+  while(!Curl_str_until(&nextarg, &segment, CURLUPLOADFLAG_MAX_LEN, ',')) {
+    negative = !Curl_str_single(&segment.str, '!');
+    if(negative)
+      --segment.len; /* The leading '!' was removed in Curl_str_single */
+
+    if(segment.len == 8 && !strncmp(segment.str, "Answered", segment.len)) {
+      if(negative)
+        config->upload_flags &= ~CURLUPLOADFLAG_ANSWERED;
+      else
+        config->upload_flags |= CURLUPLOADFLAG_ANSWERED;
+    }
+    else if(segment.len == 7 && !strncmp(segment.str, "Deleted",
+                                         segment.len)) {
+      if(negative)
+        config->upload_flags &= ~CURLUPLOADFLAG_DELETED;
+      else
+        config->upload_flags |= CURLUPLOADFLAG_DELETED;
+    }
+    else if(segment.len == 5 && !strncmp(segment.str, "Draft", segment.len)) {
+      if(negative)
+        config->upload_flags &= ~CURLUPLOADFLAG_DRAFT;
+      else
+        config->upload_flags |= CURLUPLOADFLAG_DRAFT;
+    }
+    else if(segment.len == 7 &&
+      !strncmp(segment.str, "Flagged", segment.len)) {
+      if(negative)
+        config->upload_flags &= ~CURLUPLOADFLAG_FLAGGED;
+      else
+        config->upload_flags |= CURLUPLOADFLAG_FLAGGED;
+    }
+    else if(segment.len == 4 && !strncmp(segment.str, "Seen", segment.len)) {
+      if(negative)
+        config->upload_flags &= ~CURLUPLOADFLAG_SEEN;
+      else
+        config->upload_flags |= CURLUPLOADFLAG_SEEN;
+    }
+    else{
+      err = PARAM_OPTION_UNKNOWN;
+      break;
+    }
+
+    Curl_str_single(&nextarg, ',');
+  }
+
   return err;
 }
 
@@ -2852,6 +2909,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       break;
     case C_MPTCP: /* --mptcp */
       config->mptcp = TRUE;
+      break;
+    case C_UPLOAD_FLAGS: /* --upload-flags */
+      err = parse_upload_flags(config, nextarg);
       break;
     default: /* unknown flag */
       err = PARAM_OPTION_UNKNOWN;

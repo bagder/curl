@@ -765,6 +765,7 @@ static CURLcode imap_perform_append(struct Curl_easy *data)
   CURLcode result = CURLE_OK;
   struct IMAP *imap = data->req.p.imap;
   char *mailbox;
+  bool first_flag = TRUE;
 
   /* Check we have a mailbox */
   if(!imap->mailbox) {
@@ -813,9 +814,91 @@ static CURLcode imap_perform_append(struct Curl_easy *data)
   if(!mailbox)
     return CURLE_OUT_OF_MEMORY;
 
-  /* Send the APPEND command */
-  result = imap_sendf(data, "APPEND %s (\\Seen) {%" FMT_OFF_T "}",
-                      mailbox, data->state.infilesize);
+  /* Generate flags string and send the APPEND command */
+  if(data->set.upload_flags) {
+    struct dynbuf flags;
+    Curl_dyn_init(&flags, 100);
+    if(Curl_dyn_add(&flags, "(")) {
+      result = CURLE_OUT_OF_MEMORY;
+      goto cleanup;
+    }
+
+    if(data->set.upload_flags & CURLUPLOADFLAG_ANSWERED) {
+      if(first_flag)
+        first_flag = FALSE;
+      else if(Curl_dyn_add(&flags, " ")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+      if(Curl_dyn_add(&flags, "\\Answered")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+    }
+    if(data->set.upload_flags & CURLUPLOADFLAG_DELETED) {
+      if(first_flag)
+        first_flag = FALSE;
+      else if(Curl_dyn_add(&flags, " ")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+      if(Curl_dyn_add(&flags, "\\Deleted")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+    }
+    if(data->set.upload_flags & CURLUPLOADFLAG_DRAFT) {
+      if(first_flag)
+        first_flag = FALSE;
+      else if(Curl_dyn_add(&flags, " ")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+      if(Curl_dyn_add(&flags, "\\Draft")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+    }
+    if(data->set.upload_flags & CURLUPLOADFLAG_FLAGGED) {
+      if(first_flag)
+        first_flag = FALSE;
+      else if(Curl_dyn_add(&flags, " ")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+      if(Curl_dyn_add(&flags, "\\Flagged")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+    }
+    if(data->set.upload_flags & CURLUPLOADFLAG_SEEN) {
+      if(first_flag)
+        first_flag = FALSE;
+      else if(Curl_dyn_add(&flags, " ")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+      if(Curl_dyn_add(&flags, "\\Seen")) {
+        result = CURLE_OUT_OF_MEMORY;
+        goto cleanup;
+      }
+    }
+
+    if(Curl_dyn_add(&flags, ")")) {
+      result = CURLE_OUT_OF_MEMORY;
+      goto cleanup;
+    }
+
+    result = imap_sendf(data, "APPEND %s %s {%" FMT_OFF_T "}",
+                        mailbox, Curl_dyn_ptr(&flags), data->state.infilesize);
+
+cleanup:
+      Curl_dyn_free(&flags);
+  }
+  else{
+    result = imap_sendf(data, "APPEND %s {%" FMT_OFF_T "}",
+                        mailbox, data->state.infilesize);
+    }
 
   free(mailbox);
 

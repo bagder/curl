@@ -1015,6 +1015,15 @@ typedef enum {
 #define CURLALTSVC_H2           (1<<4)
 #define CURLALTSVC_H3           (1<<5)
 
+/* bitmask values for CURLOPT_UPLOAD_FLAGS */
+#define CURLUPLOADFLAG_ANSWERED (1<<0)
+#define CURLUPLOADFLAG_DELETED  (1<<1)
+#define CURLUPLOADFLAG_DRAFT    (1<<2)
+#define CURLUPLOADFLAG_FLAGGED  (1<<3)
+#define CURLUPLOADFLAG_SEEN     (1<<4)
+
+/* max allowable flag length for a CURLOPT_UPLOAD_FLAGS flag */
+#define CURLUPLOADFLAG_MAX_LEN 20
 
 struct curl_hstsentry {
   char *name;
@@ -2227,6 +2236,8 @@ typedef enum {
 
   /* maximum number of keepalive probes (Linux, *BSD, macOS, etc.) */
   CURLOPT(CURLOPT_TCP_KEEPCNT, CURLOPTTYPE_LONG, 326),
+
+  CURLOPT(CURLOPT_UPLOAD_FLAGS, CURLOPTTYPE_LONG, 327),
 
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;

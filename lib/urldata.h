@@ -1822,6 +1822,7 @@ struct UserDefined {
 #ifdef USE_ECH
   int tls_ech;      /* TLS ECH configuration  */
 #endif
+  long upload_flags;
 };
 
 #ifndef CURL_DISABLE_MIME
