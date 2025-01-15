@@ -9,7 +9,7 @@ See-also:
 Protocol:
   - IMAP
   - IMAPS
-Added-in: 8.12.0
+Added-in: 8.13.0
 ---
 
 # NAME
@@ -28,15 +28,15 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_UPLOAD_FLAGS, long bitmask);
 
 Pass a long as parameter, which is set to a bitmask, to tell libcurl which
 flags to send the server relating to uploaded files. The current supported
-flags are *CURLUPLOADFLAG_ANSWERED*, which sets the *Answered* flag for IMAP
-uploads, *CURLUPLOADFLAG_DELETED*, which sets the *Deleted* flag for IMAP
-uploads, *CURLUPLOADFLAG_DRAFT*, which sets the *Draft* flag for IMAP uploads,
-*CURLUPLOADFLAG_FLAGGED*, which sets the *Flagged* flag for IMAP uploads, and
-*CURLUPLOADFLAG_SEEN*, which sets the *Seen* flag for IMAP uploads.
+flags are *CURLULFLAG_ANSWERED*, which sets the *Answered* flag for IMAP
+uploads, *CURLULFLAG_DELETED*, which sets the *Deleted* flag for IMAP
+uploads, *CURLULFLAG_DRAFT*, which sets the *Draft* flag for IMAP uploads,
+*CURLULFLAG_FLAGGED*, which sets the *Flagged* flag for IMAP uploads, and
+*CURLULFLAG_SEEN*, which sets the *Seen* flag for IMAP uploads.
 
 # DEFAULT
 
-A bitmask with only the CURLUPLOADFLAG_SEEN flag set.
+A bitmask with only the CURLULFLAG_SEEN flag set.
 
 # %PROTOCOLS%
 
@@ -76,7 +76,7 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_PASSWORD, "password");
 
     /* specify that uploaded mail should be considered flagged */
-    curl_easy_setopt(curl, CURLOPT_UPLOAD_FLAGS, CURLOPTUPLOADFLAG_FLAGGED);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD_FLAGS, CURLULFLAG_FLAGGED);
 
     /* now specify which pointer to pass to our callback */
     curl_easy_setopt(curl, CURLOPT_READDATA, src);

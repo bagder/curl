@@ -1565,54 +1565,50 @@ static ParameterError parse_time_cond(struct GlobalConfig *global,
 static ParameterError parse_upload_flags(struct OperationConfig *config,
                                       char *nextarg)
 {
-  struct Curl_str segment;
+  char *tmp, *upload_flag;
   ParameterError err = PARAM_OK;
-  bool negative = FALSE;
+  size_t flag_len;
 
-  while(!Curl_str_until(&nextarg, &segment, CURLUPLOADFLAG_MAX_LEN, ',')) {
-    negative = !Curl_str_single(&segment.str, '!');
-    if(negative)
-      --segment.len; /* The leading '!' was removed in Curl_str_single */
+  tmp = strdup(nextarg);
+  if(!tmp)
+    return PARAM_NO_MEM;
 
-    if(segment.len == 8 && !strncmp(segment.str, "Answered", segment.len)) {
-      if(negative)
-        config->upload_flags &= ~CURLUPLOADFLAG_ANSWERED;
-      else
-        config->upload_flags |= CURLUPLOADFLAG_ANSWERED;
-    }
-    else if(segment.len == 7 && !strncmp(segment.str, "Deleted",
-                                         segment.len)) {
-      if(negative)
-        config->upload_flags &= ~CURLUPLOADFLAG_DELETED;
-      else
-        config->upload_flags |= CURLUPLOADFLAG_DELETED;
-    }
-    else if(segment.len == 5 && !strncmp(segment.str, "Draft", segment.len)) {
-      if(negative)
-        config->upload_flags &= ~CURLUPLOADFLAG_DRAFT;
-      else
-        config->upload_flags |= CURLUPLOADFLAG_DRAFT;
-    }
-    else if(segment.len == 7 &&
-      !strncmp(segment.str, "Flagged", segment.len)) {
-      if(negative)
-        config->upload_flags &= ~CURLUPLOADFLAG_FLAGGED;
-      else
-        config->upload_flags |= CURLUPLOADFLAG_FLAGGED;
-    }
-    else if(segment.len == 4 && !strncmp(segment.str, "Seen", segment.len)) {
-      if(negative)
-        config->upload_flags &= ~CURLUPLOADFLAG_SEEN;
-      else
-        config->upload_flags |= CURLUPLOADFLAG_SEEN;
-    }
-    else{
+  /* Allow strtok() here since this is not used threaded */
+  /* !checksrc! disable BANNEDFUNC 2 */
+  upload_flag = strtok(tmp, ",");
+
+  while(upload_flag) {
+    flag_len = strlen(upload_flag);
+
+    if(flag_len == 8 && !strncmp(upload_flag, "Answered", 8))
+      config->upload_flags |= CURLULFLAG_ANSWERED;
+    else if(flag_len == 9 && !strncmp(upload_flag, "!Answered", 9))
+      config->upload_flags &= ~CURLULFLAG_ANSWERED;
+    else if(flag_len == 7 && !strncmp(upload_flag, "Deleted", 7))
+      config->upload_flags |= CURLULFLAG_DELETED;
+    else if(flag_len == 8 && !strncmp(upload_flag, "!Deleted", 8))
+      config->upload_flags &= ~CURLULFLAG_DELETED;
+    else if(flag_len == 5 && !strncmp(upload_flag, "Draft", 5))
+      config->upload_flags |= CURLULFLAG_DRAFT;
+    else if(flag_len == 6 && !strncmp(upload_flag, "!Draft", 6))
+      config->upload_flags &= ~CURLULFLAG_DRAFT;
+    else if(flag_len == 7 && !strncmp(upload_flag, "Flagged", 7))
+      config->upload_flags |= CURLULFLAG_FLAGGED;
+    else if(flag_len == 8 && !strncmp(upload_flag, "!Flagged", 8))
+      config->upload_flags &= ~CURLULFLAG_FLAGGED;
+    else if(flag_len == 4 && !strncmp(upload_flag, "Seen", 4))
+      config->upload_flags |= CURLULFLAG_SEEN;
+    else if(flag_len == 5 && !strncmp(upload_flag, "!Seen", 5))
+      config->upload_flags &= ~CURLULFLAG_SEEN;
+    else {
       err = PARAM_OPTION_UNKNOWN;
       break;
     }
 
-    Curl_str_single(&nextarg, ',');
+    upload_flag = strtok(NULL, ",");
   }
+
+  free(tmp);
 
   return err;
 }

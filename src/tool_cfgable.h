@@ -310,7 +310,7 @@ struct OperationConfig {
   char *ech;                      /* Config set by --ech keywords */
   char *ech_config;               /* Config set by "--ech esl:" option */
   char *ech_public;               /* Config set by "--ech pn:" option */
-  unsigned long upload_flags;     /* Bitmask for --upload-flags */
+  unsigned char upload_flags;     /* Bitmask for --upload-flags */
 };
 
 struct GlobalConfig {

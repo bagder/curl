@@ -5,7 +5,7 @@ Long: upload-flags
 Arg: <flags>
 Help: Specify additional upload behaviour
 Category: curl output
-Added: 8.12.0
+Added: 8.13.0
 Multi: single
 See-also:
   - upload-file

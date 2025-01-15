@@ -41,7 +41,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 #
 # Verify data after the test has been "shot"
 <verify>
-<protocol>
+<protocol crlf="yes">
 A001 CAPABILITY
 A002 LOGIN user secret
 A003 APPEND %TESTNUMBER {356}

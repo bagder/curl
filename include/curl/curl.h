@@ -1016,14 +1016,11 @@ typedef enum {
 #define CURLALTSVC_H3           (1<<5)
 
 /* bitmask values for CURLOPT_UPLOAD_FLAGS */
-#define CURLUPLOADFLAG_ANSWERED (1<<0)
-#define CURLUPLOADFLAG_DELETED  (1<<1)
-#define CURLUPLOADFLAG_DRAFT    (1<<2)
-#define CURLUPLOADFLAG_FLAGGED  (1<<3)
-#define CURLUPLOADFLAG_SEEN     (1<<4)
-
-/* max allowable flag length for a CURLOPT_UPLOAD_FLAGS flag */
-#define CURLUPLOADFLAG_MAX_LEN 20
+#define CURLULFLAG_ANSWERED (1<<0)
+#define CURLULFLAG_DELETED  (1<<1)
+#define CURLULFLAG_DRAFT    (1<<2)
+#define CURLULFLAG_FLAGGED  (1<<3)
+#define CURLULFLAG_SEEN     (1<<4)
 
 struct curl_hstsentry {
   char *name;

@@ -1756,7 +1756,7 @@ static CURLcode config2setopts(struct GlobalConfig *global,
     }
 #endif
   }
-  /* new in 8.12.0 */
+  /* new in 8.13.0 */
   if(config->upload_flags)
     my_setopt(curl, CURLOPT_UPLOAD_FLAGS, config->upload_flags);
   return result;
