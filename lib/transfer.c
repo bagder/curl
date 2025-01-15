@@ -72,7 +72,6 @@
 #include "url.h"
 #include "getinfo.h"
 #include "vtls/vtls.h"
-#include "vtls/vtls_scache.h"
 #include "vquic/vquic.h"
 #include "select.h"
 #include "multiif.h"
@@ -529,20 +528,15 @@ CURLcode Curl_pretransfer(struct Curl_easy *data)
 {
   CURLcode result = CURLE_OK;
 
-  if(!data->state.url && !data->set.uh) {
+  if(!data->set.str[STRING_SET_URL] && !data->set.uh) {
     /* we cannot do anything without URL */
     failf(data, "No URL set");
     return CURLE_URL_MALFORMAT;
   }
 
-  /* since the URL may have been redirected in a previous use of this handle */
-  if(data->state.url_alloc) {
-    /* the already set URL is allocated, free it first! */
-    Curl_safefree(data->state.url);
-    data->state.url_alloc = FALSE;
-  }
-
-  if(!data->state.url && data->set.uh) {
+  /* CURLOPT_CURLU overrides CURLOPT_URL and the contents of the CURLU handle
+     is allowed to be changed by the user between transfers */
+  if(data->set.uh) {
     CURLUcode uc;
     free(data->set.str[STRING_SET_URL]);
     uc = curl_url_get(data->set.uh,
@@ -552,6 +546,14 @@ CURLcode Curl_pretransfer(struct Curl_easy *data)
       return CURLE_URL_MALFORMAT;
     }
   }
+
+  /* since the URL may have been redirected in a previous use of this handle */
+  if(data->state.url_alloc) {
+    Curl_safefree(data->state.url);
+    data->state.url_alloc = FALSE;
+  }
+
+  data->state.url = data->set.str[STRING_SET_URL];
 
   if(data->set.postfields && data->set.set_resume_from) {
     /* we cannot */
@@ -564,17 +566,11 @@ CURLcode Curl_pretransfer(struct Curl_easy *data)
   data->state.list_only = data->set.list_only;
 #endif
   data->state.httpreq = data->set.method;
-  data->state.url = data->set.str[STRING_SET_URL];
 
 #ifdef USE_SSL
-  if(!data->state.ssl_scache) {
-    /* There was no ssl session cache set via a share, so we create
-     * one just for this transfer alone. Most transfers talk to just
-     * one host, but redirects may involve several occasionally. */
-    result = Curl_ssl_scache_create(3, 2, &data->state.ssl_scache);
-    if(result)
-      return result;
-  }
+  if(!data->state.ssl_scache)
+    /* There was no ssl session cache set via a share, use the multi one */
+    data->state.ssl_scache = data->multi->ssl_scache;
 #endif
 
   data->state.requests = 0;
@@ -977,9 +973,9 @@ bool Curl_xfer_is_blocked(struct Curl_easy *data)
   bool want_send = ((data)->req.keepon & KEEP_SEND);
   bool want_recv = ((data)->req.keepon & KEEP_RECV);
   if(!want_send)
-    return (want_recv && Curl_cwriter_is_paused(data));
+    return want_recv && Curl_cwriter_is_paused(data);
   else if(!want_recv)
-    return (want_send && Curl_creader_is_paused(data));
+    return want_send && Curl_creader_is_paused(data);
   else
     return Curl_creader_is_paused(data) && Curl_cwriter_is_paused(data);
 }

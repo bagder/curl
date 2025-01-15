@@ -1418,8 +1418,8 @@ endif()
 if(_curl_ca_bundle_supported)
   set(CURL_CA_BUNDLE "auto" CACHE
     STRING "Path to the CA bundle. Set 'none' to disable or 'auto' for auto-detection. Defaults to 'auto'.")
-  set(CURL_CA_FALLBACK OFF CACHE BOOL
-    "Use built-in CA store of TLS backend. Defaults to OFF")
+  set(CURL_CA_FALLBACK OFF CACHE
+    BOOL "Use built-in CA store of TLS backend. Defaults to OFF")
   set(CURL_CA_PATH "auto" CACHE
     STRING "Location of default CA path. Set 'none' to disable or 'auto' for auto-detection. Defaults to 'auto'.")
   set(CURL_CA_EMBED "" CACHE
@@ -1870,9 +1870,11 @@ include(CMake/OtherTests.cmake)
 
 add_definitions("-DHAVE_CONFIG_H")
 
-# For Windows, all compilers used by CMake should support large files
 if(WIN32)
-  set(USE_WIN32_LARGE_FILES ON)
+  # _fseeki64() requires VS2005
+  if(NOT MSVC OR (MSVC_VERSION GREATER_EQUAL 1400))
+    set(USE_WIN32_LARGE_FILES ON)
+  endif()
 
   # Use the manifest embedded in the Windows Resource
   set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -DCURL_EMBED_MANIFEST")
@@ -1892,14 +1894,13 @@ if(MSVC)
   # Disable default manifest added by CMake
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
 
-  add_definitions("-D_CRT_SECURE_NO_DEPRECATE" "-D_CRT_NONSTDC_NO_DEPRECATE")
   if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
     string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
   endif()
 
-  # Use multithreaded compilation on VS 2008+
+  # Use multithreaded compilation on VS2008+
   if(CMAKE_C_COMPILER_ID STREQUAL "MSVC" AND MSVC_VERSION GREATER_EQUAL 1500)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
   endif()
@@ -2055,7 +2056,7 @@ message(STATUS "Protocols: ${_support_protocols_lower}")
 # Clear list and try to detect available features
 set(_items "")
 curl_add_if("SSL"           _ssl_enabled)
-curl_add_if("IPv6"          ENABLE_IPV6)
+curl_add_if("IPv6"          USE_IPV6)
 curl_add_if("UnixSockets"   USE_UNIX_SOCKETS)
 curl_add_if("libz"          HAVE_LIBZ)
 curl_add_if("brotli"        HAVE_BROTLI)
@@ -2377,15 +2378,6 @@ if(NOT CURL_DISABLE_INSTALL)
 
   install(FILES ${_version_config} ${_project_config}
     DESTINATION ${_install_cmake_dir})
-
-  # Workaround for MSVS10 to avoid the Dialog Hell
-  # FIXME: This could be removed with future version of CMake.
-  if(MSVC_VERSION EQUAL 1600)
-    set(_curl_sln_filename "${CMAKE_CURRENT_BINARY_DIR}/CURL.sln")
-    if(EXISTS "${_curl_sln_filename}")
-      file(APPEND "${_curl_sln_filename}" "\n# This should be regenerated!\n")
-    endif()
-  endif()
 
   if(NOT TARGET curl_uninstall)
     configure_file(
