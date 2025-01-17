@@ -839,11 +839,8 @@ static CURLcode imap_perform_append(struct Curl_easy *data)
 
     for(int i = 0; ulflag[i].bit; i++) {
       if(data->set.upload_flags & ulflag[i].bit) {
-        if(Curl_dyn_len(&flags)) {
-          if(Curl_dyn_len(&flags) > 2 && Curl_dyn_add(&flags, " "))
-            goto cleanup;
-        }
-        if(Curl_dyn_add(&flags, "\\") || Curl_dyn_add(&flags, ulflag[i].flag))
+        if((Curl_dyn_len(&flags) > 2 && Curl_dyn_add(&flags, " ")) ||
+           Curl_dyn_add(&flags, "\\") || Curl_dyn_add(&flags, ulflag[i].flag))
           goto cleanup;
       }
     }
