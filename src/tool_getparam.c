@@ -41,7 +41,6 @@
 #include "tool_main.h"
 #include "dynbuf.h"
 #include "tool_stderr.h"
-#include "strparse.h"
 #include "var.h"
 
 #include "memdebug.h" /* keep this as LAST include */
