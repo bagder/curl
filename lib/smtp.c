@@ -135,6 +135,7 @@ const struct Curl_handler Curl_handler_smtp = {
   ZERO_NULL,                        /* write_resp_hd */
   ZERO_NULL,                        /* connection_check */
   ZERO_NULL,                        /* attach connection */
+  ZERO_NULL,                        /* follow */
   PORT_SMTP,                        /* defport */
   CURLPROTO_SMTP,                   /* protocol */
   CURLPROTO_SMTP,                   /* family */
@@ -165,6 +166,7 @@ const struct Curl_handler Curl_handler_smtps = {
   ZERO_NULL,                        /* write_resp_hd */
   ZERO_NULL,                        /* connection_check */
   ZERO_NULL,                        /* attach connection */
+  ZERO_NULL,                        /* follow */
   PORT_SMTPS,                       /* defport */
   CURLPROTO_SMTPS,                  /* protocol */
   CURLPROTO_SMTP,                   /* family */
@@ -1286,7 +1288,7 @@ static CURLcode smtp_multi_statemach(struct Curl_easy *data, bool *done)
   struct connectdata *conn = data->conn;
   struct smtp_conn *smtpc = &conn->proto.smtpc;
 
-  if((conn->handler->flags & PROTOPT_SSL) && !smtpc->ssldone) {
+  if(Curl_conn_is_ssl(conn, FIRSTSOCKET) && !smtpc->ssldone) {
     bool ssldone = FALSE;
     result = Curl_conn_connect(data, FIRSTSOCKET, FALSE, &ssldone);
     smtpc->ssldone = ssldone;

@@ -1382,10 +1382,12 @@ AC_DEFUN([CURL_CHECK_WIN32_LARGEFILE], [
     AC_MSG_CHECKING([whether build target supports Win32 large files])
     case $host_os in
       mingw32ce*|cegcc*)
-        curl_win32_has_largefile='no'  dnl Windows CE does not support large files
+        dnl Windows CE does not support large files
+        curl_win32_has_largefile='no'
         ;;
       *)
-        curl_win32_has_largefile='yes'  dnl All mingw-w64 versions support large files
+        dnl All mingw-w64 versions support large files
+        curl_win32_has_largefile='yes'
         ;;
     esac
     case "$curl_win32_has_largefile" in
@@ -1413,7 +1415,7 @@ AC_DEFUN([CURL_CHECK_WIN32_CRYPTO], [
   AC_REQUIRE([CURL_CHECK_NATIVE_WINDOWS])dnl
   AC_MSG_CHECKING([whether build target supports Win32 crypto API])
   curl_win32_crypto_api="no"
-  if test "$curl_cv_native_windows" = "yes"; then
+  if test "$curl_cv_native_windows" = "yes" -a "$curl_cv_winuwp" != "yes"; then
     AC_COMPILE_IFELSE([
       AC_LANG_PROGRAM([[
         #undef inline
@@ -1524,17 +1526,28 @@ AC_DEFUN([CURL_PREPARE_BUILDINFO], [
   case $host in
     *-apple-*) curl_pflags="${curl_pflags} APPLE";;
   esac
+  case $host in
+    *-*-*bsd*|*-*-aix*|*-*-hpux*|*-*-interix*|*-*-irix*|*-*-linux*|*-*-solaris*|*-*-sunos*|*-apple-*|*-*-cygwin*|*-*-msys*)
+      curl_pflags="${curl_pflags} UNIX";;
+  esac
+  case $host in
+    *-*-*bsd*)
+      curl_pflags="${curl_pflags} BSD";;
+  esac
+  case $host in
+    *-*-android*)
+      curl_pflags="${curl_pflags} ANDROID"
+      ANDROID_PLATFORM_LEVEL=`echo "$host_os" | $SED -ne 's/.*android\(@<:@0-9@:>@*\).*/\1/p'`
+      if test -n "${ANDROID_PLATFORM_LEVEL}"; then
+        curl_pflags="${curl_pflags}-${ANDROID_PLATFORM_LEVEL}"
+      fi
+      ;;
+  esac
   if test "$curl_cv_native_windows" = 'yes'; then
     curl_pflags="${curl_pflags} WIN32"
-  else
-    case $host in
-      *-*-*bsd*|*-*-aix*|*-*-hpux*|*-*-interix*|*-*-irix*|*-*-linux*|*-*-solaris*|*-*-sunos*|*-apple-*|*-*-cygwin*|*-*-msys*)
-        curl_pflags="${curl_pflags} UNIX";;
-    esac
-    case $host in
-      *-*-*bsd*)
-        curl_pflags="${curl_pflags} BSD";;
-    esac
+  fi
+  if test "$curl_cv_winuwp" = 'yes'; then
+    curl_pflags="${curl_pflags} UWP"
   fi
   if test "$curl_cv_cygwin" = 'yes'; then
     curl_pflags="${curl_pflags} CYGWIN"

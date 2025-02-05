@@ -250,6 +250,7 @@ const struct Curl_handler Curl_handler_ftp = {
   ZERO_NULL,                       /* write_resp_hd */
   ZERO_NULL,                       /* connection_check */
   ZERO_NULL,                       /* attach connection */
+  ZERO_NULL,                       /* follow */
   PORT_FTP,                        /* defport */
   CURLPROTO_FTP,                   /* protocol */
   CURLPROTO_FTP,                   /* family */
@@ -282,6 +283,7 @@ const struct Curl_handler Curl_handler_ftps = {
   ZERO_NULL,                       /* write_resp_hd */
   ZERO_NULL,                       /* connection_check */
   ZERO_NULL,                       /* attach connection */
+  ZERO_NULL,                       /* follow */
   PORT_FTPS,                       /* defport */
   CURLPROTO_FTPS,                  /* protocol */
   CURLPROTO_FTP,                   /* family */
@@ -3163,7 +3165,7 @@ static CURLcode ftp_connect(struct Curl_easy *data,
 
   PINGPONG_SETUP(pp, ftp_statemachine, ftp_endofresp);
 
-  if(conn->handler->flags & PROTOPT_SSL) {
+  if(Curl_conn_is_ssl(conn, FIRSTSOCKET)) {
     /* BLOCKING */
     result = Curl_conn_connect(data, FIRSTSOCKET, TRUE, done);
     if(result)
@@ -4106,8 +4108,8 @@ static CURLcode ftp_disconnect(struct Curl_easy *data,
 }
 
 #ifdef _MSC_VER
-/* warning C4706: assignment within conditional expression */
-#pragma warning(disable:4706)
+#pragma warning(push)
+#pragma warning(disable:4706) /* assignment within conditional expression */
 #endif
 
 /***********************************************************************
@@ -4263,6 +4265,10 @@ CURLcode ftp_parse_url_path(struct Curl_easy *data)
   free(rawPath);
   return CURLE_OK;
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 /* call this when the DO phase has completed */
 static CURLcode ftp_dophase_done(struct Curl_easy *data, bool connected)

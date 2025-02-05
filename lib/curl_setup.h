@@ -31,13 +31,6 @@
 /* Tell "curl/curl.h" not to include "curl/mprintf.h" */
 #define CURL_SKIP_INCLUDE_MPRINTF
 
-/* Make these warnings visible with an option. */
-#if !defined(CURL_WARN_SIGN_CONVERSION)
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#endif
-#endif
-
 /* Set default _WIN32_WINNT */
 #ifdef __MINGW32__
 #include <_mingw.h>
@@ -137,9 +130,7 @@
 
 #else /* HAVE_CONFIG_H */
 
-#ifdef _WIN32_WCE
-#  include "config-win32ce.h"
-#elif defined(_WIN32)
+#ifdef _WIN32
 #  include "config-win32.h"
 #endif
 
@@ -284,14 +275,6 @@
 #  define CURL_DISABLE_HTTP_AUTH 1
 #endif
 
-/*
- * ECH requires HTTPSRR.
- */
-
-#if defined(USE_ECH) && !defined(USE_HTTPSRR)
-#  define USE_HTTPSRR
-#endif
-
 /* ================================================================ */
 /* No system header file shall be included in this file before this */
 /* point.                                                           */
@@ -384,6 +367,15 @@
 #  if TARGET_OS_MAC && !(defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) && \
      defined(USE_IPV6)
 #    define CURL_MACOS_CALL_COPYPROXIES 1
+#  endif
+#endif
+
+#ifdef USE_ARES
+#  ifndef CARES_NO_DEPRECATED
+#  define CARES_NO_DEPRECATED  /* for ares_getsock() */
+#  endif
+#  if defined(CURL_STATICLIB) && !defined(CARES_STATICLIB) && defined(_WIN32)
+#    define CARES_STATICLIB  /* define it before including ares.h */
 #  endif
 #endif
 
@@ -712,15 +704,15 @@
 #  define CURLRES_IPV4
 #endif
 
-#ifdef USE_ARES
+#if defined(USE_THREADS_POSIX) || defined(USE_THREADS_WIN32)
+#  define CURLRES_ASYNCH
+#  define CURLRES_THREADED
+#elif defined(USE_ARES)
 #  define CURLRES_ASYNCH
 #  define CURLRES_ARES
 /* now undef the stock libc functions just to avoid them being used */
 #  undef HAVE_GETADDRINFO
 #  undef HAVE_FREEADDRINFO
-#elif defined(USE_THREADS_POSIX) || defined(USE_THREADS_WIN32)
-#  define CURLRES_ASYNCH
-#  define CURLRES_THREADED
 #else
 #  define CURLRES_SYNCH
 #endif
@@ -886,6 +878,14 @@
 #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #endif
 
+/* Since O_BINARY is used in bitmasks, setting it to zero makes it usable in
+   source code but yet it does not ruin anything */
+#ifdef O_BINARY
+#define CURL_O_BINARY O_BINARY
+#else
+#define CURL_O_BINARY 0
+#endif
+
 /* In Windows the default file mode is text but an application can override it.
 Therefore we specify it explicitly. https://github.com/curl/curl/pull/258
 */
@@ -933,7 +933,7 @@ endings either CRLF or LF so 't' is appropriate.
    as their argument */
 #define STRCONST(x) x,sizeof(x)-1
 
-/* Some versions of the Android SDK is missing the declaration */
+/* Some versions of the Android NDK is missing the declaration */
 #if defined(HAVE_GETPWUID_R) && \
   defined(__ANDROID_API__) && (__ANDROID_API__ < 21)
 struct passwd;

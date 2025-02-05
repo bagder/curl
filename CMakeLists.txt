@@ -86,6 +86,23 @@ project(CURL
   VERSION "${_curl_version_sem}"
   LANGUAGES C)
 
+# CMake does not recognize some targets accurately. Touch up configuration manually as a workaround.
+if(WINDOWS_STORE AND MINGW)  # mingw UWP build
+  # CMake (as of v3.31.2) gets confused and applies the MSVC rc.exe command-line
+  # template to windres. Reset it to the windres template via 'Modules/Platform/Windows-windres.cmake':
+  set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <DEFINES> <INCLUDES> <FLAGS> <SOURCE> <OBJECT>")
+elseif(DOS AND CMAKE_COMPILER_IS_GNUCC)  # DJGPP
+  set(CMAKE_STATIC_LIBRARY_PREFIX "lib")
+  set(CMAKE_STATIC_LIBRARY_SUFFIX ".a")
+  set(CMAKE_FIND_LIBRARY_PREFIXES "lib")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif()
+
+# Fill platform level variable when using CMake's built-in Android configuration
+if(ANDROID AND NOT DEFINED ANDROID_PLATFORM_LEVEL AND NOT CMAKE_SYSTEM_VERSION EQUAL 1)
+  set(ANDROID_PLATFORM_LEVEL "${CMAKE_SYSTEM_VERSION}")
+endif()
+
 set(_target_flags "")
 if(APPLE)
   set(_target_flags "${_target_flags} APPLE")
@@ -95,6 +112,9 @@ if(UNIX)
 endif()
 if(BSD)
   set(_target_flags "${_target_flags} BSD")
+endif()
+if(ANDROID)
+  set(_target_flags "${_target_flags} ANDROID-${ANDROID_PLATFORM_LEVEL}")
 endif()
 if(WIN32)
   set(_target_flags "${_target_flags} WIN32")
@@ -173,8 +193,8 @@ if(WIN32)
   option(CURL_STATIC_CRT "Build libcurl with static CRT with MSVC (/MT)" OFF)
   if(CURL_STATIC_CRT AND MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -MT")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -MTd")
   endif()
 
   option(ENABLE_UNICODE "Use the Unicode version of the Windows API functions" OFF)
@@ -205,23 +225,33 @@ if(WIN32)
     string(TOLOWER "${CURL_TEST_OUTPUT}" HAVE_WIN32_WINNT)
     message(STATUS "Found _WIN32_WINNT=${HAVE_WIN32_WINNT}")
   endif()
-  # Avoid storing HAVE_WIN32_WINNT in CMake cache
-  unset(HAVE_WIN32_WINNT CACHE)
+  unset(HAVE_WIN32_WINNT CACHE)  # Avoid storing in CMake cache
+
+  if(MINGW)
+    # Detect __MINGW64_VERSION_MAJOR, __MINGW64_VERSION_MINOR and store as MINGW64_VERSION
+    curl_internal_test(MINGW64_VERSION)
+    if(MINGW64_VERSION)
+      string(REGEX MATCH "MINGW64_VERSION=[0-9]+\.[0-9]+" CURL_TEST_OUTPUT "${CURL_TEST_OUTPUT}")
+      string(REGEX REPLACE "MINGW64_VERSION=" "" MINGW64_VERSION "${CURL_TEST_OUTPUT}")
+      message(STATUS "Found MINGW64_VERSION=${MINGW64_VERSION}")
+    endif()
+    unset(MINGW64_VERSION CACHE)  # Avoid storing in CMake cache
+  endif()
 elseif(DOS OR AMIGA)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_STATIC_LIBS ON)
-  if(DOS AND CMAKE_COMPILER_IS_GNUCC)
-    set(CMAKE_STATIC_LIBRARY_PREFIX "lib")
-    set(CMAKE_STATIC_LIBRARY_SUFFIX ".a")
-    set(CMAKE_FIND_LIBRARY_PREFIXES "lib")
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-  endif()
 endif()
 option(CURL_LTO "Enable compiler Link Time Optimizations" OFF)
 
-cmake_dependent_option(ENABLE_THREADED_RESOLVER "Enable threaded DNS lookup"
-  ON "NOT ENABLE_ARES;NOT DOS;NOT AMIGA"
-  OFF)
+if(NOT DOS AND NOT AMIGA)
+  # if c-ares is used, default the threaded resolver to OFF
+  if(ENABLE_ARES)
+    set(_enable_threaded_resolver_default OFF)
+  else()
+    set(_enable_threaded_resolver_default ON)
+  endif()
+  option(ENABLE_THREADED_RESOLVER "Enable threaded DNS lookup" ${_enable_threaded_resolver_default})
+endif()
 
 include(PickyWarnings)
 
@@ -298,7 +328,9 @@ else()
 endif()
 
 # Override to force-disable or force-enable the use of pkg-config.
-if(UNIX OR VCPKG_TOOLCHAIN OR (MINGW AND NOT CMAKE_CROSSCOMPILING))  # Keep in sync with CMake/curl-config.cmake.in
+if((UNIX AND NOT ANDROID AND (NOT APPLE OR CMAKE_SYSTEM_NAME MATCHES "Darwin")) OR
+   VCPKG_TOOLCHAIN OR
+   (MINGW AND NOT CMAKE_CROSSCOMPILING))
   set(_curl_use_pkgconfig_default ON)
 else()
   set(_curl_use_pkgconfig_default OFF)
@@ -320,7 +352,6 @@ if(ENABLE_ARES)
   if(CARES_CFLAGS)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CARES_CFLAGS}")
   endif()
-  add_definitions("-DCARES_NO_DEPRECATED")  # Ignore c-ares deprecation warnings
 endif()
 
 include(CurlSymbolHiding)
@@ -482,6 +513,19 @@ if(ENABLE_IPV6)
 endif()
 
 find_package(Perl)
+
+if(PERL_EXECUTABLE)
+  add_custom_target(curl-ca-bundle
+    COMMENT "Generating a fresh ca-bundle.crt" VERBATIM USES_TERMINAL
+    COMMAND "${PERL_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/mk-ca-bundle.pl" -b -l -u "lib/ca-bundle.crt"
+    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk-ca-bundle.pl"
+  )
+  add_custom_target(curl-ca-firefox
+    COMMENT "generating a fresh ca-bundle.crt" VERBATIM USES_TERMINAL
+    COMMAND "${PERL_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/firefox-db2pem.sh" "lib/ca-bundle.crt"
+    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/firefox-db2pem.sh"
+  )
+endif()
 
 option(BUILD_LIBCURL_DOCS "Build libcurl man pages" ON)
 option(BUILD_MISC_DOCS "Build misc man pages (e.g. curl-config and mk-ca-bundle)" ON)
@@ -716,6 +760,13 @@ if(CURL_USE_OPENSSL)
   endif()
   cmake_pop_check_state()
 
+  if(HAVE_BORINGSSL OR HAVE_AWSLC)
+    if(OPENSSL_USE_STATIC_LIBS AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+      list(APPEND CURL_LIBS "stdc++")
+      list(APPEND CMAKE_REQUIRED_LIBRARIES "stdc++")
+    endif()
+  endif()
+
   if(HAVE_BORINGSSL)
     set(_openssl "BoringSSL")
   elseif(HAVE_AWSLC)
@@ -726,6 +777,9 @@ if(CURL_USE_OPENSSL)
     set(_openssl "AmiSSL")
   else()
     set(_openssl "OpenSSL")
+    if(OPENSSL_VERSION VERSION_LESS 1.1.1)
+      message(WARNING "OpenSSL ${OPENSSL_VERSION} does not support TLS 1.3.")
+    endif()
   endif()
 endif()
 
@@ -970,7 +1024,10 @@ if(USE_ECH)
     if(NOT HAVE_ECH)
       message(FATAL_ERROR "ECH support missing in OpenSSL/BoringSSL/AWS-LC/wolfSSL")
     else()
-      message(STATUS "ECH enabled.")
+      message(STATUS "ECH enabled")
+      # ECH wants HTTPSRR
+      set(USE_HTTPSRR ON)
+      message(STATUS "HTTPSRR enabled")
     endif()
   else()
     message(FATAL_ERROR "ECH requires ECH-enablded OpenSSL, BoringSSL, AWS-LC or wolfSSL")
@@ -1638,7 +1695,6 @@ check_symbol_exists("basename"        "${CURL_INCLUDES};string.h" HAVE_BASENAME)
 check_symbol_exists("opendir"         "dirent.h" HAVE_OPENDIR)
 check_function_exists("poll"          HAVE_POLL)  # poll.h
 check_symbol_exists("socket"          "${CURL_INCLUDES}" HAVE_SOCKET)  # winsock2.h sys/socket.h
-check_function_exists("sched_yield"   HAVE_SCHED_YIELD)
 check_symbol_exists("socketpair"      "${CURL_INCLUDES}" HAVE_SOCKETPAIR)  # sys/socket.h
 check_symbol_exists("recv"            "${CURL_INCLUDES}" HAVE_RECV)  # proto/bsdsocket.h sys/types.h sys/socket.h
 check_symbol_exists("send"            "${CURL_INCLUDES}" HAVE_SEND)  # proto/bsdsocket.h sys/types.h sys/socket.h
@@ -1686,6 +1742,7 @@ check_function_exists("setmode"         HAVE_SETMODE)
 check_function_exists("setrlimit"       HAVE_SETRLIMIT)
 
 if(NOT WIN32)
+  check_function_exists("sched_yield"   HAVE_SCHED_YIELD)
   check_symbol_exists("strcasecmp"      "string.h" HAVE_STRCASECMP)
   check_symbol_exists("stricmp"         "string.h" HAVE_STRICMP)
   check_symbol_exists("strcmpi"         "string.h" HAVE_STRCMPI)
@@ -1763,13 +1820,15 @@ if(HAVE_FILE_OFFSET_BITS)
 endif()
 check_type_size("off_t" SIZEOF_OFF_T)
 
-# fseeko may not exist with _FILE_OFFSET_BITS=64 but can exist with
-# _FILE_OFFSET_BITS unset or 32 (e.g. Android ARMv7 with NDK 26b and API level < 24)
-# so we need to test fseeko after testing for _FILE_OFFSET_BITS
-check_symbol_exists("fseeko" "${CURL_INCLUDES};stdio.h" HAVE_FSEEKO)
+if(NOT WIN32)
+  # fseeko may not exist with _FILE_OFFSET_BITS=64 but can exist with
+  # _FILE_OFFSET_BITS unset or 32 (e.g. Android ARMv7 with NDK 26b and API level < 24)
+  # so we need to test fseeko after testing for _FILE_OFFSET_BITS
+  check_symbol_exists("fseeko" "${CURL_INCLUDES};stdio.h" HAVE_FSEEKO)
 
-if(HAVE_FSEEKO)
-  set(HAVE_DECL_FSEEKO 1)
+  if(HAVE_FSEEKO)
+    set(HAVE_DECL_FSEEKO 1)
+  endif()
 endif()
 
 # Include this header to get the type
@@ -1892,23 +1951,23 @@ endif()
 
 if(MSVC)
   # Disable default manifest added by CMake
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -MANIFEST:NO")
 
-  if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-    string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  if(CMAKE_C_FLAGS MATCHES "[/-]W[0-4]")
+    string(REGEX REPLACE "[/-]W[0-4]" "-W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -W4")
   endif()
 
   # Use multithreaded compilation on VS2008+
   if(CMAKE_C_COMPILER_ID STREQUAL "MSVC" AND MSVC_VERSION GREATER_EQUAL 1500)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MP")
   endif()
 endif()
 
 if(CURL_WERROR)
   if(MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -WX")
   else()
     # This assumes clang or gcc style options
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -2063,6 +2122,7 @@ curl_add_if("brotli"        HAVE_BROTLI)
 curl_add_if("gsasl"         USE_GSASL)
 curl_add_if("zstd"          HAVE_ZSTD)
 curl_add_if("AsynchDNS"     USE_ARES OR USE_THREADS_POSIX OR USE_THREADS_WIN32)
+curl_add_if("asyn-rr"       USE_ARES AND ENABLE_THREADED_RESOLVER)
 curl_add_if("IDN"           (HAVE_LIBIDN2 AND HAVE_IDN2_H) OR
                             USE_WIN32_IDN OR
                             USE_APPLE_IDN)
@@ -2093,6 +2153,7 @@ curl_add_if("threadsafe"    HAVE_ATOMIC OR
 curl_add_if("Debug"         ENABLE_DEBUG)
 curl_add_if("TrackMemory"   ENABLE_CURLDEBUG)
 curl_add_if("ECH"           _ssl_enabled AND HAVE_ECH)
+curl_add_if("HTTPSRR"       _ssl_enabled AND USE_HTTPSRR)
 curl_add_if("PSL"           USE_LIBPSL)
 curl_add_if("CAcert"        CURL_CA_EMBED_SET)
 curl_add_if("SSLS-EXPORT"   _ssl_enabled AND USE_SSLS_EXPORT)
@@ -2361,8 +2422,8 @@ if(NOT CURL_DISABLE_INSTALL)
   #   CURLVERSION
   #   LIB_SELECTED
   #   TARGETS_EXPORT_NAME
-  #   USE_OPENSSL
-  #   HAVE_LIBZ
+  #   USE_OPENSSL OPENSSL_VERSION_MAJOR
+  #   HAVE_LIBZ ZLIB_VERSION_MAJOR
   #   CURL_SUPPORTED_FEATURES_LIST
   #   CURL_SUPPORTED_PROTOCOLS_LIST
   configure_package_config_file("CMake/curl-config.cmake.in"

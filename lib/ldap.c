@@ -57,7 +57,7 @@
 #ifdef USE_WIN32_LDAP           /* Use Windows LDAP implementation. */
 # ifdef _MSC_VER
 #  pragma warning(push)
-#  pragma warning(disable: 4201)
+#  pragma warning(disable:4201)
 # endif
 # include <subauth.h>  /* for [P]UNICODE_STRING */
 # ifdef _MSC_VER
@@ -83,6 +83,7 @@
 
 #include "urldata.h"
 #include <curl/curl.h>
+#include "cfilters.h"
 #include "sendf.h"
 #include "escape.h"
 #include "progress.h"
@@ -186,6 +187,7 @@ const struct Curl_handler Curl_handler_ldap = {
   ZERO_NULL,                            /* write_resp_hd */
   ZERO_NULL,                            /* connection_check */
   ZERO_NULL,                            /* attach connection */
+  ZERO_NULL,                            /* follow */
   PORT_LDAP,                            /* defport */
   CURLPROTO_LDAP,                       /* protocol */
   CURLPROTO_LDAP,                       /* family */
@@ -215,6 +217,7 @@ const struct Curl_handler Curl_handler_ldaps = {
   ZERO_NULL,                            /* write_resp_hd */
   ZERO_NULL,                            /* connection_check */
   ZERO_NULL,                            /* attach connection */
+  ZERO_NULL,                            /* follow */
   PORT_LDAPS,                           /* defport */
   CURLPROTO_LDAPS,                      /* protocol */
   CURLPROTO_LDAP,                       /* family */
@@ -351,7 +354,7 @@ static CURLcode ldap_do(struct Curl_easy *data, bool *done)
   }
 
   /* Get the URL scheme (either ldap or ldaps) */
-  if(conn->given->flags & PROTOPT_SSL)
+  if(Curl_conn_is_ssl(conn, FIRSTSOCKET))
     ldap_ssl = 1;
   infof(data, "LDAP local: trying to establish %s connection",
         ldap_ssl ? "encrypted" : "cleartext");

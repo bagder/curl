@@ -38,10 +38,6 @@
 #include "easy_lock.h"
 
 #ifdef USE_ARES
-#  if defined(CURL_STATICLIB) && !defined(CARES_STATICLIB) &&   \
-  defined(_WIN32)
-#    define CARES_STATICLIB
-#  endif
 #  include <ares.h>
 #endif
 
@@ -416,10 +412,15 @@ static const char * const supported_protocols[] = {
  * curl_global_init() and curl_global_cleanup() calls.
  */
 
-#if defined(USE_LIBIDN2)
+#if defined(USE_LIBIDN2) || defined(USE_WIN32_IDN) || defined(USE_APPLE_IDN)
 static int idn_present(curl_version_info_data *info)
 {
+#if defined(USE_WIN32_IDN) || defined(USE_APPLE_IDN)
+  (void)info;
+  return TRUE;
+#else
   return info->libidn != NULL;
+#endif
 }
 #else
 #define idn_present     NULL
@@ -461,6 +462,9 @@ static const struct feat features_table[] = {
 #ifndef CURL_DISABLE_ALTSVC
   FEATURE("alt-svc",     NULL,                CURL_VERSION_ALTSVC),
 #endif
+#if defined(USE_ARES) && defined(CURLRES_THREADED) && defined(USE_HTTPSRR)
+  FEATURE("asyn-rr", NULL,             0),
+#endif
 #ifdef CURLRES_ASYNCH
   FEATURE("AsynchDNS",   NULL,                CURL_VERSION_ASYNCHDNS),
 #endif
@@ -472,6 +476,10 @@ static const struct feat features_table[] = {
 #endif
 #if defined(USE_SSL) && defined(USE_ECH)
   FEATURE("ECH",         ech_present,         0),
+
+#ifndef USE_HTTPSRR
+#error "ECH enabled but not HTTPSRR, must be a config error"
+#endif
 #endif
 #ifdef USE_GSASL
   FEATURE("gsasl",       NULL,                CURL_VERSION_GSASL),
@@ -491,6 +499,9 @@ static const struct feat features_table[] = {
 #if defined(USE_SSL) && !defined(CURL_DISABLE_PROXY) && \
   !defined(CURL_DISABLE_HTTP)
   FEATURE("HTTPS-proxy", https_proxy_present, CURL_VERSION_HTTPS_PROXY),
+#endif
+#if defined(USE_HTTPSRR)
+  FEATURE("HTTPSRR",     NULL,                0),
 #endif
 #if defined(USE_LIBIDN2) || defined(USE_WIN32_IDN) || defined(USE_APPLE_IDN)
   FEATURE("IDN",         idn_present,         CURL_VERSION_IDN),

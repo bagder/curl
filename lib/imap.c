@@ -135,6 +135,7 @@ const struct Curl_handler Curl_handler_imap = {
   ZERO_NULL,                        /* write_resp_hd */
   ZERO_NULL,                        /* connection_check */
   ZERO_NULL,                        /* attach connection */
+  ZERO_NULL,                        /* follow */
   PORT_IMAP,                        /* defport */
   CURLPROTO_IMAP,                   /* protocol */
   CURLPROTO_IMAP,                   /* family */
@@ -165,6 +166,7 @@ const struct Curl_handler Curl_handler_imaps = {
   ZERO_NULL,                        /* write_resp_hd */
   ZERO_NULL,                        /* connection_check */
   ZERO_NULL,                        /* attach connection */
+  ZERO_NULL,                        /* follow */
   PORT_IMAPS,                       /* defport */
   CURLPROTO_IMAPS,                  /* protocol */
   CURLPROTO_IMAP,                   /* family */
@@ -1430,7 +1432,7 @@ static CURLcode imap_multi_statemach(struct Curl_easy *data, bool *done)
   struct connectdata *conn = data->conn;
   struct imap_conn *imapc = &conn->proto.imapc;
 
-  if((conn->handler->flags & PROTOPT_SSL) && !imapc->ssldone) {
+  if(Curl_conn_is_ssl(conn, FIRSTSOCKET) && !imapc->ssldone) {
     bool ssldone = FALSE;
     result = Curl_conn_connect(data, FIRSTSOCKET, FALSE, &ssldone);
     imapc->ssldone = ssldone;

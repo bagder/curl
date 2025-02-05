@@ -956,12 +956,12 @@ static bool url_match_conn(struct connectdata *conn, void *userdata)
     return FALSE;
 #endif
 
-  if((needle->handler->flags&PROTOPT_SSL) !=
-     (conn->handler->flags&PROTOPT_SSL))
-    /* do not do mixed SSL and non-SSL connections */
-    if(get_protocol_family(conn->handler) !=
-       needle->handler->protocol || !conn->bits.tls_upgraded)
-      /* except protocols that have been upgraded via TLS */
+  if((!(needle->handler->flags&PROTOPT_SSL) !=
+      !Curl_conn_is_ssl(conn, FIRSTSOCKET)) &&
+     !(get_protocol_family(conn->handler) == needle->handler->protocol &&
+       conn->bits.tls_upgraded))
+    /* Deny `conn` if it is not fit for `needle`'s SSL needs,
+     * UNLESS `conn` is the same protocol family and was upgraded to SSL. */
       return FALSE;
 
 #ifndef CURL_DISABLE_PROXY
@@ -1002,7 +1002,7 @@ static bool url_match_conn(struct connectdata *conn, void *userdata)
   if(match->may_multiplex &&
      (data->state.httpwant == CURL_HTTP_VERSION_2_0) &&
      (needle->handler->protocol & CURLPROTO_HTTP) &&
-     !conn->httpversion) {
+     !conn->httpversion_seen) {
     if(data->set.pipewait) {
       infof(data, "Server upgrade does not support multiplex yet, wait");
       match->found = NULL;
@@ -1025,10 +1025,12 @@ static bool url_match_conn(struct connectdata *conn, void *userdata)
     }
   }
 
+#ifdef HAVE_GSSAPI
   /* GSS delegation differences do not actually affect every connection
      and auth method, but this check takes precaution before efficiency */
   if(needle->gssapi_delegation != conn->gssapi_delegation)
     return FALSE;
+#endif
 
   /* If looking for HTTP and the HTTP version we want is less
    * than the HTTP version of conn, continue looking.
@@ -1036,17 +1038,18 @@ static bool url_match_conn(struct connectdata *conn, void *userdata)
    * so we take any existing connection. */
   if((needle->handler->protocol & PROTO_FAMILY_HTTP) &&
      (data->state.httpwant != CURL_HTTP_VERSION_2TLS)) {
-    if((conn->httpversion >= 20) &&
+    unsigned char httpversion = Curl_conn_http_version(data);
+    if((httpversion >= 20) &&
        (data->state.httpwant < CURL_HTTP_VERSION_2_0)) {
       DEBUGF(infof(data, "nor reusing conn #%" CURL_FORMAT_CURL_OFF_T
              " with httpversion=%d, we want a version less than h2",
-             conn->connection_id, conn->httpversion));
+             conn->connection_id, httpversion));
     }
-    if((conn->httpversion >= 30) &&
+    if((httpversion >= 30) &&
        (data->state.httpwant < CURL_HTTP_VERSION_3)) {
       DEBUGF(infof(data, "nor reusing conn #%" CURL_FORMAT_CURL_OFF_T
              " with httpversion=%d, we want a version less than h3",
-             conn->connection_id, conn->httpversion));
+             conn->connection_id, httpversion));
       return FALSE;
     }
   }
@@ -1388,8 +1391,9 @@ static struct connectdata *allocate_conn(struct Curl_easy *data)
   conn->fclosesocket = data->set.fclosesocket;
   conn->closesocket_client = data->set.closesocket_client;
   conn->lastused = conn->created;
+#ifdef HAVE_GSSAPI
   conn->gssapi_delegation = data->set.gssapi_delegation;
-
+#endif
   return conn;
 error:
 
@@ -3135,14 +3139,14 @@ static CURLcode parse_connect_to_slist(struct Curl_easy *data,
         /* protocol version switch */
         switch(as->dst.alpnid) {
         case ALPN_h1:
-          conn->httpversion = 11;
+          data->state.httpwant = CURL_HTTP_VERSION_1_1;
           break;
         case ALPN_h2:
-          conn->httpversion = 20;
+          data->state.httpwant = CURL_HTTP_VERSION_2_0;
           break;
         case ALPN_h3:
           conn->transport = TRNSPRT_QUIC;
-          conn->httpversion = 30;
+          data->state.httpwant = CURL_HTTP_VERSION_3;
           break;
         default: /* should not be possible */
           break;

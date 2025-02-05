@@ -71,15 +71,6 @@ rem ***************************************************************************
   shift & goto parseArgs
 
 :start
-  if exist ..\buildconf.bat (
-    if "%MODE%" == "GENERATE" (
-      call ..\buildconf
-    ) else if "%VERSION%" == "PRE" (
-      call ..\buildconf -clean
-    ) else if "%VERSION%" == "ALL" (
-      call ..\buildconf -clean
-    )
-  )
   if "%VERSION%" == "PRE" goto success
   if "%VERSION%" == "VC10" goto vc10
   if "%VERSION%" == "VC11" goto vc11
@@ -313,7 +304,7 @@ rem
   echo Only legacy Visual Studio project files can be generated.
   echo.
   echo To generate recent versions of Visual Studio project files use cmake.
-  echo Refer to INSTALL-CMAKE in the docs directory.
+  echo Refer to INSTALL-CMAKE.md in the docs directory.
   echo.
   echo -clean    - Removes the project files
   goto error

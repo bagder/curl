@@ -46,9 +46,8 @@ jobs:
   #      - name: install prereqs
   #        run: |
   #          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
-  #          sudo apt-get update -y
-  #          sudo apt-get install -y --no-install-suggests --no-install-recommends \
-  #            python3-proselint
+  #          sudo apt-get -o Dpkg::Use-Pty=0 update
+  #          sudo apt-get -o Dpkg::Use-Pty=0 install python3-proselint
   #
   #      # config file help: https://github.com/amperser/proselint/
   #      - name: create proselint config
@@ -160,7 +159,7 @@ jobs:
         run: .github/scripts/verify-examples.pl docs/libcurl/curl*.3 docs/libcurl/opts/*.3
 
   miscchecks:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4

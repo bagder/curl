@@ -176,9 +176,9 @@ static bool xfer_recv_shutdown_started(struct Curl_easy *data)
   int sockindex;
 
   if(!data || !data->conn)
-    return CURLE_FAILED_INIT;
+    return FALSE;
   if(data->conn->sockfd == CURL_SOCKET_BAD)
-    return CURLE_FAILED_INIT;
+    return FALSE;
   sockindex = (data->conn->sockfd == data->conn->sock[SECONDARYSOCKET]);
   return Curl_shutdown_started(data, sockindex);
 }
@@ -782,7 +782,7 @@ static void xfer_setup(
   DEBUGASSERT((writesockindex <= 1) && (writesockindex >= -1));
   DEBUGASSERT(!shutdown || (sockindex == -1) || (writesockindex == -1));
 
-  if(conn->bits.multiplex || conn->httpversion >= 20 || want_send) {
+  if(Curl_conn_is_multiplex(conn, FIRSTSOCKET) || want_send) {
     /* when multiplexing, the read/write sockets need to be the same! */
     conn->sockfd = sockindex == -1 ?
       ((writesockindex == -1 ? CURL_SOCKET_BAD : conn->sock[writesockindex])) :

@@ -103,12 +103,11 @@ if(PICKY_COMPILER)
       -Wmissing-field-initializers         # clang  2.7  gcc  4.1
       -Wmissing-noreturn                   # clang  2.7  gcc  4.1
       -Wno-format-nonliteral               # clang  1.0  gcc  2.96 (3.0)
+      -Wno-sign-conversion                 # clang  2.9  gcc  4.3
       -Wno-system-headers                  # clang  1.0  gcc  3.0
     # -Wpadded                             # clang  2.9  gcc  4.1               # Not used: We cannot change public structs
       -Wold-style-definition               # clang  2.7  gcc  3.4
       -Wredundant-decls                    # clang  2.7  gcc  4.1
-      -Wsign-conversion                    # clang  2.9  gcc  4.3
-        -Wno-error=sign-conversion
       -Wstrict-prototypes                  # clang  1.0  gcc  3.3
     # -Wswitch-enum                        # clang  2.7  gcc  4.1               # Not used: It basically disallows default case
       -Wtype-limits                        # clang  2.7  gcc  4.3
@@ -236,6 +235,24 @@ if(PICKY_COMPILER)
         list(APPEND _picky "${_ccopt}")
       endif()
     endforeach()
+
+    if(CMAKE_COMPILER_IS_GNUCC)
+      if(CMAKE_C_COMPILER_VERSION VERSION_LESS 4.5)
+        # Avoid false positives
+        list(APPEND _picky "-Wno-shadow")
+        list(APPEND _picky "-Wno-unreachable-code")
+      endif()
+      if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.2 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 4.6)
+        # GCC <4.6 do not support #pragma to suppress warnings locally. Disable them globally instead.
+        list(APPEND _picky "-Wno-overlength-strings")
+      endif()
+      if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.0 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 4.7)
+        list(APPEND _picky "-Wno-missing-field-initializers")  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=36750
+      endif()
+      if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.3 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 4.8)
+        list(APPEND _picky "-Wno-type-limits")  # Avoid false positives
+      endif()
+    endif()
   endif()
 endif()
 
@@ -249,7 +266,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND MSVC)
     if(_ccopt MATCHES "^-W" AND NOT _ccopt STREQUAL "-Wall")
       list(APPEND _picky_tmp ${_ccopt})
     else()
-      list(APPEND _picky_tmp "/clang:${_ccopt}")
+      list(APPEND _picky_tmp "-clang:${_ccopt}")
     endif()
   endforeach()
   set(_picky ${_picky_tmp})

@@ -175,6 +175,8 @@ static void cf_ngtcp2_ctx_init(struct cf_ngtcp2_ctx *ctx)
 static void cf_ngtcp2_ctx_free(struct cf_ngtcp2_ctx *ctx)
 {
   if(ctx && ctx->initialized) {
+    Curl_vquic_tls_cleanup(&ctx->tls);
+    vquic_ctx_free(&ctx->q);
     Curl_bufcp_free(&ctx->stream_bufcp);
     Curl_dyn_free(&ctx->scratch);
     Curl_hash_clean(&ctx->streams);
@@ -470,7 +472,6 @@ static int cf_ngtcp2_handshake_completed(ngtcp2_conn *tconn, void *user_data)
   ctx->handshake_at = Curl_now();
   ctx->tls_handshake_complete = TRUE;
   cf->conn->bits.multiplex = TRUE; /* at least potentially multiplexed */
-  cf->conn->httpversion = 30;
 
   ctx->tls_vrfy_result = Curl_vquic_tls_verify_peer(&ctx->tls, cf,
                                                     data, &ctx->peer);
@@ -1990,9 +1991,6 @@ static CURLcode cf_ngtcp2_data_event(struct Curl_cfilter *cf,
   case CF_CTRL_DATA_PAUSE:
     result = h3_data_pause(cf, data, (arg1 != 0));
     break;
-  case CF_CTRL_DATA_DETACH:
-    h3_data_done(cf, data);
-    break;
   case CF_CTRL_DATA_DONE:
     h3_data_done(cf, data);
     break;
@@ -2597,6 +2595,9 @@ static CURLcode cf_ngtcp2_query(struct Curl_cfilter *cf,
       *when = ctx->handshake_at;
     return CURLE_OK;
   }
+  case CF_QUERY_HTTP_VERSION:
+    *pres1 = 30;
+    return CURLE_OK;
   default:
     break;
   }
@@ -2659,7 +2660,7 @@ out:
 
 struct Curl_cftype Curl_cft_http3 = {
   "HTTP/3",
-  CF_TYPE_IP_CONNECT | CF_TYPE_SSL | CF_TYPE_MULTIPLEX,
+  CF_TYPE_IP_CONNECT | CF_TYPE_SSL | CF_TYPE_MULTIPLEX | CF_TYPE_HTTP,
   0,
   cf_ngtcp2_destroy,
   cf_ngtcp2_connect,

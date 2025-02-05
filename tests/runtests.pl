@@ -57,8 +57,7 @@
 # given, this won't be a problem.
 
 use strict;
-# Promote all warnings to fatal
-use warnings FATAL => 'all';
+use warnings;
 use 5.006;
 use POSIX qw(strftime);
 
@@ -698,6 +697,8 @@ sub checksystemfeatures {
             $feature{"Unicode"} = $feat =~ /Unicode/i;
             # Thread-safe init
             $feature{"threadsafe"} = $feat =~ /threadsafe/i;
+            $feature{"HTTPSRR"} = $feat =~ /HTTPSRR/;
+            $feature{"asyn-rr"} = $feat =~ /asyn-rr/;
         }
         #
         # Test harness currently uses a non-stunnel server in order to
@@ -1671,7 +1672,7 @@ sub singletest_check {
             my %cmdhash = getpartattr("client", "command");
             my $cmdtype = $cmdhash{'type'} || "default";
             logmsg "\n** ALERT! memory tracking with no output file?\n"
-                if(!$cmdtype eq "perl");
+                if($cmdtype ne "perl");
             $ok .= "-"; # problem with memory checking
         }
         else {

@@ -138,6 +138,7 @@ const struct Curl_handler Curl_handler_pop3 = {
   ZERO_NULL,                        /* write_resp_hd */
   ZERO_NULL,                        /* connection_check */
   ZERO_NULL,                        /* attach connection */
+  ZERO_NULL,                        /* follow */
   PORT_POP3,                        /* defport */
   CURLPROTO_POP3,                   /* protocol */
   CURLPROTO_POP3,                   /* family */
@@ -168,6 +169,7 @@ const struct Curl_handler Curl_handler_pop3s = {
   ZERO_NULL,                        /* write_resp_hd */
   ZERO_NULL,                        /* connection_check */
   ZERO_NULL,                        /* attach connection */
+  ZERO_NULL,                        /* follow */
   PORT_POP3S,                       /* defport */
   CURLPROTO_POP3S,                  /* protocol */
   CURLPROTO_POP3,                   /* family */
@@ -1110,6 +1112,9 @@ static CURLcode pop3_multi_statemach(struct Curl_easy *data, bool *done)
   struct connectdata *conn = data->conn;
   struct pop3_conn *pop3c = &conn->proto.pop3c;
 
+  /* Issue #16166, STLS seems to stall and time out. Revert to previous
+   * check, but it remains to find out why this is wrong. */
+  /* if(Curl_conn_is_ssl(conn, FIRSTSOCKET) && !pop3c->ssldone) { */
   if((conn->handler->flags & PROTOPT_SSL) && !pop3c->ssldone) {
     bool ssldone = FALSE;
     result = Curl_conn_connect(data, FIRSTSOCKET, FALSE, &ssldone);

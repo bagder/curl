@@ -180,6 +180,7 @@ LIB_CFILES =         \
   http_negotiate.c   \
   http_ntlm.c        \
   http_proxy.c       \
+  httpsrr.c          \
   idn.c              \
   if2ip.c            \
   imap.c             \
@@ -320,6 +321,7 @@ LIB_HFILES =         \
   http_negotiate.h   \
   http_ntlm.h        \
   http_proxy.h       \
+  httpsrr.h          \
   idn.h              \
   if2ip.h            \
   imap.h             \
@@ -347,7 +349,9 @@ LIB_HFILES =         \
   select.h           \
   sendf.h            \
   setopt.h           \
+  setup-os400.h      \
   setup-vms.h        \
+  setup-win32.h      \
   share.h            \
   sigpipe.h          \
   slist.h            \

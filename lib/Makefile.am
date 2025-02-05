@@ -28,11 +28,9 @@ CMAKE_DIST = CMakeLists.txt curl_config.h.cmake
 CHECKSRC_DIST = .checksrc vauth/.checksrc vquic/.checksrc vssh/.checksrc \
  vtls/.checksrc
 
-EXTRA_DIST = config-win32.h config-win32ce.h config-plan9.h             \
- config-riscos.h config-mac.h curl_config.h.in libcurl.rc               \
- config-win32ce.h config-os400.h setup-os400.h                          \
- $(CMAKE_DIST) setup-win32.h Makefile.soname optiontable.pl libcurl.def \
- $(CHECKSRC_DIST)
+EXTRA_DIST = config-mac.h config-os400.h config-plan9.h config-riscos.h \
+ config-win32.h curl_config.h.in libcurl.rc libcurl.def                 \
+ $(CMAKE_DIST) Makefile.soname optiontable.pl $(CHECKSRC_DIST)
 
 lib_LTLIBRARIES = libcurl.la
 
@@ -145,9 +143,10 @@ CS_1 =
 CS_ = $(CS_0)
 
 checksrc:
-	$(CHECKSRC)(@PERL@ $(top_srcdir)/scripts/checksrc.pl -D$(srcdir)    \
-	-W$(srcdir)/curl_config.h $(srcdir)/*.[ch] $(srcdir)/vauth/*.[ch]   \
-	$(srcdir)/vtls/*.[ch] $(srcdir)/vquic/*.[ch] $(srcdir)/vssh/*.[ch])
+	$(CHECKSRC)(@PERL@ $(top_srcdir)/scripts/checksrc.pl -D$(srcdir)         \
+	  -W$(srcdir)/libcurl_unity.c -W$(srcdir)/curl_config.h $(srcdir)/*.[ch] \
+	  $(srcdir)/vauth/*.[ch] $(srcdir)/vtls/*.[ch] $(srcdir)/vquic/*.[ch]    \
+	  $(srcdir)/vssh/*.[ch])
 
 if DEBUGBUILD
 # for debug builds, we scan the sources on all regular make invokes

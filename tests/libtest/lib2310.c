@@ -1,5 +1,5 @@
 /***************************************************************************
- *                                  _   _ ____  _
+*                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
@@ -22,18 +22,47 @@
  *
  ***************************************************************************/
 
-#include "tool_setup.h"
-#include "tool_hugehelp.h"
+#include "test.h"
+#include "testtrace.h"
+#include "memdebug.h"
 
-void hugehelp(void)
+#ifndef CURL_DISABLE_WEBSOCKETS
+
+static size_t writecb(char *b, size_t size, size_t nitems, void *p)
 {
-  puts("built-in manual was disabled at build-time");
+  (void)b;
+  (void)size;
+  (void)nitems;
+  (void)p;
+  return 0;
 }
 
-void showhelp(const char *trigger, const char *arg, const char *endarg)
+CURLcode test(char *URL)
 {
-  (void)trigger;
-  (void)arg;
-  (void)endarg;
-  hugehelp();
+  CURL *curl;
+  CURLcode res = CURLE_OK;
+
+  global_init(CURL_GLOBAL_ALL);
+
+  curl = curl_easy_init();
+  if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, URL);
+
+    /* use the callback style */
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "webbie-sox/3");
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writecb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, curl);
+    res = curl_easy_perform(curl);
+    printf("Returned %d, should be %d.\n", res, CURLE_RECV_ERROR);
+
+    /* always cleanup */
+    curl_easy_cleanup(curl);
+  }
+  curl_global_cleanup();
+  return CURLE_OK;
 }
+
+#else
+NO_SUPPORT_BUILT_IN
+#endif

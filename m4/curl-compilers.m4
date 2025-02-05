@@ -843,8 +843,7 @@ AC_DEFUN([CURL_SET_COMPILER_WARNING_OPTS], [
           #
           dnl Only clang 2.9 or later
           if test "$compiler_num" -ge "209"; then
-            CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [sign-conversion])
-            tmp_CFLAGS="$tmp_CFLAGS -Wno-error=sign-conversion"
+            tmp_CFLAGS="$tmp_CFLAGS -Wno-sign-conversion"
             CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [shift-sign-overflow])
           # CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [padded])  # Not used because we cannot change public structs
           fi
@@ -1031,8 +1030,7 @@ AC_DEFUN([CURL_SET_COMPILER_WARNING_OPTS], [
             CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [missing-parameter-type empty-body])
             CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [clobbered ignored-qualifiers])
             CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [conversion])
-            CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [sign-conversion])
-            tmp_CFLAGS="$tmp_CFLAGS -Wno-error=sign-conversion"
+            tmp_CFLAGS="$tmp_CFLAGS -Wno-sign-conversion"
             CURL_ADD_COMPILER_WARNINGS([tmp_CFLAGS], [vla])
             dnl required for -Warray-bounds, included in -Wall
             tmp_CFLAGS="$tmp_CFLAGS -ftree-vrp"
@@ -1112,6 +1110,23 @@ AC_DEFUN([CURL_SET_COMPILER_WARNING_OPTS], [
               tmp_CFLAGS="$tmp_CFLAGS -Wno-missing-prototypes"
             fi
           fi
+        fi
+        if test "$compiler_num" -lt "405"; then
+          dnl Avoid false positives
+          tmp_CFLAGS="$tmp_CFLAGS -Wno-shadow"
+          tmp_CFLAGS="$tmp_CFLAGS -Wno-unreachable-code"
+        fi
+        if test "$compiler_num" -ge "402" -a "$compiler_num" -lt "406"; then
+          dnl GCC <4.6 do not support #pragma to suppress warnings locally. Disable globally instead.
+          tmp_CFLAGS="$tmp_CFLAGS -Wno-overlength-strings"
+        fi
+        if test "$compiler_num" -ge "400" -a "$compiler_num" -lt "407"; then
+          dnl https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84685
+          tmp_CFLAGS="$tmp_CFLAGS -Wno-missing-field-initializers"
+        fi
+        if test "$compiler_num" -ge "403" -a "$compiler_num" -lt "408"; then
+          dnl Avoid false positives
+          tmp_CFLAGS="$tmp_CFLAGS -Wno-type-limits"
         fi
         ;;
         #

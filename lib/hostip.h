@@ -29,6 +29,7 @@
 #include "curl_addrinfo.h"
 #include "timeval.h" /* for timediff_t */
 #include "asyn.h"
+#include "httpsrr.h"
 
 #include <setjmp.h>
 
@@ -53,6 +54,13 @@ struct hostent;
 struct Curl_easy;
 struct connectdata;
 
+enum alpnid {
+  ALPN_none = 0,
+  ALPN_h1 = CURLALTSVC_H1,
+  ALPN_h2 = CURLALTSVC_H2,
+  ALPN_h3 = CURLALTSVC_H3
+};
+
 /*
  * Curl_global_host_cache_init() initializes and sets up a global DNS cache.
  * Global DNS cache is general badness. Do not use. This will be removed in
@@ -61,36 +69,6 @@ struct connectdata;
  * Returns a struct Curl_hash pointer on success, NULL on failure.
  */
 struct Curl_hash *Curl_global_host_cache_init(void);
-
-#ifdef USE_HTTPSRR
-
-#define CURL_MAXLEN_host_name 253
-
-struct Curl_https_rrinfo {
-  size_t len; /* raw encoded length */
-  unsigned char *val; /* raw encoded octets */
-  /*
-   * fields from HTTPS RR, with the mandatory fields
-   * first (priority, target), then the others in the
-   * order of the keytag numbers defined at
-   * https://datatracker.ietf.org/doc/html/rfc9460#section-14.3.2
-   */
-  uint16_t priority;
-  char *target;
-  char *alpns; /* keytag = 1 */
-  bool no_def_alpn; /* keytag = 2 */
-  /*
-   * we do not support ports (keytag = 3) as we do not support
-   * port-switching yet
-   */
-  unsigned char *ipv4hints; /* keytag = 4 */
-  size_t ipv4hints_len;
-  unsigned char *echconfiglist; /* keytag = 5 */
-  size_t echconfiglist_len;
-  unsigned char *ipv6hints; /* keytag = 6 */
-  size_t ipv6hints_len;
-};
-#endif
 
 struct Curl_dns_entry {
   struct Curl_addrinfo *addr;

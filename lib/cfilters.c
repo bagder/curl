@@ -494,11 +494,33 @@ bool Curl_conn_is_multiplex(struct connectdata *conn, int sockindex)
   for(; cf; cf = cf->next) {
     if(cf->cft->flags & CF_TYPE_MULTIPLEX)
       return TRUE;
-    if(cf->cft->flags & CF_TYPE_IP_CONNECT
-       || cf->cft->flags & CF_TYPE_SSL)
+    if(cf->cft->flags & (CF_TYPE_IP_CONNECT|CF_TYPE_SSL))
       return FALSE;
   }
   return FALSE;
+}
+
+unsigned char Curl_conn_http_version(struct Curl_easy *data)
+{
+  struct Curl_cfilter *cf;
+  CURLcode result = CURLE_UNKNOWN_OPTION;
+  unsigned char v = 0;
+
+  cf = data->conn ? data->conn->cfilter[FIRSTSOCKET] : NULL;
+  for(; cf; cf = cf->next) {
+    if(cf->cft->flags & CF_TYPE_HTTP) {
+      int value = 0;
+      result = cf->cft->query(cf, data, CF_QUERY_HTTP_VERSION, &value, NULL);
+      if(!result && ((value < 0) || (value > 255)))
+        result = CURLE_FAILED_INIT;
+      else
+        v = (unsigned char)value;
+      break;
+    }
+    if(cf->cft->flags & (CF_TYPE_IP_CONNECT|CF_TYPE_SSL))
+      break;
+  }
+  return (unsigned char)(result ? 0 : v);
 }
 
 bool Curl_conn_data_pending(struct Curl_easy *data, int sockindex)
@@ -709,18 +731,6 @@ static CURLcode cf_cntrl_all(struct connectdata *conn,
       break;
   }
   return result;
-}
-
-void Curl_conn_ev_data_attach(struct connectdata *conn,
-                              struct Curl_easy *data)
-{
-  cf_cntrl_all(conn, data, TRUE, CF_CTRL_DATA_ATTACH, 0, NULL);
-}
-
-void Curl_conn_ev_data_detach(struct connectdata *conn,
-                              struct Curl_easy *data)
-{
-  cf_cntrl_all(conn, data, TRUE, CF_CTRL_DATA_DETACH, 0, NULL);
 }
 
 CURLcode Curl_conn_ev_data_setup(struct Curl_easy *data)

@@ -44,7 +44,7 @@ jobs:
         run: git ls-files -z "*.[ch]" | xargs -0 -n1 ./scripts/checksrc.pl
 
   codespell-cmakelint-pytype-ruff:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -56,8 +56,8 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-suggests --no-install-recommends \
+          sudo apt-get -o Dpkg::Use-Pty=0 update
+          sudo apt-get -o Dpkg::Use-Pty=0 install \
             codespell python3-pip python3-networkx python3-pydot python3-yaml \
             python3-toml python3-markupsafe python3-jinja2 python3-tabulate \
             python3-typing-extensions python3-libcst python3-impacket \
@@ -93,7 +93,7 @@ jobs:
         uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5
 
   miscchecks:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4

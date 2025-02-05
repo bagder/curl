@@ -26,11 +26,11 @@ versions of libs and build tools.
 
  - OpenSSL      0.9.7
  - GnuTLS       3.1.10
- - zlib         1.1.4
+ - zlib         1.2.0.4
  - libssh2      1.0
  - c-ares       1.16.0
  - libidn2      2.0.0
- - wolfSSL      2.0.0
+ - wolfSSL      3.4.6
  - OpenLDAP     2.0
  - MIT Kerberos 1.2.4
  - Heimdal      ?
