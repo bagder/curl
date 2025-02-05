@@ -28,11 +28,11 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_UPLOAD_FLAGS, long bitmask);
 
 Pass a long as parameter, which is set to a bitmask, to tell libcurl which
 flags to send the server relating to uploaded files. The current supported
-flags are *CURLULFLAG_ANSWERED*, which sets the *Answered* flag for IMAP
-uploads, *CURLULFLAG_DELETED*, which sets the *Deleted* flag for IMAP
-uploads, *CURLULFLAG_DRAFT*, which sets the *Draft* flag for IMAP uploads,
-*CURLULFLAG_FLAGGED*, which sets the *Flagged* flag for IMAP uploads, and
-*CURLULFLAG_SEEN*, which sets the *Seen* flag for IMAP uploads.
+flags are **CURLULFLAG_ANSWERED**, which sets the **Answered** flag for IMAP
+uploads, **CURLULFLAG_DELETED**, which sets the **Deleted** flag for IMAP
+uploads, **CURLULFLAG_DRAFT**, which sets the **Draft** flag for IMAP uploads,
+**CURLULFLAG_FLAGGED**, which sets the **Flagged** flag for IMAP uploads, and
+**CURLULFLAG_SEEN**, which sets the **Seen** flag for IMAP uploads.
 
 # DEFAULT
 
