@@ -809,7 +809,7 @@ const struct helptxt helptext[] = {
    "Transfer local FILE to destination",
    CURLHELP_IMPORTANT | CURLHELP_UPLOAD},
   {"    --upload-flags <flags>",
-   "Specify additional upload behaviour",
+   "Specify additional upload behavior",
    CURLHELP_CURL | CURLHELP_OUTPUT},
   {"    --url <url>",
    "URL to work with",
