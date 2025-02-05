@@ -823,6 +823,7 @@ static CURLcode imap_perform_append(struct Curl_easy *data)
   /* Generate flags string and send the APPEND command */
   Curl_dyn_init(&flags, 100);
   if(data->set.upload_flags) {
+    int i;
     struct ulbits ulflag[] = {
       {CURLULFLAG_ANSWERED, "Answered"},
       {CURLULFLAG_DELETED, "Deleted"},
@@ -837,7 +838,7 @@ static CURLcode imap_perform_append(struct Curl_easy *data)
       goto cleanup;
     }
 
-    for(int i = 0; ulflag[i].bit; i++) {
+    for(i = 0; ulflag[i].bit; i++) {
       if(data->set.upload_flags & ulflag[i].bit) {
         if((Curl_dyn_len(&flags) > 2 && Curl_dyn_add(&flags, " ")) ||
            Curl_dyn_add(&flags, "\\") || Curl_dyn_add(&flags, ulflag[i].flag))
