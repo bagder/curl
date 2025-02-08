@@ -36,7 +36,7 @@ uploads, **CURLULFLAG_DRAFT**, which sets the **Draft** flag for IMAP uploads,
 
 # DEFAULT
 
-A bitmask with only the CURLULFLAG_SEEN flag set.
+A bitmask with only the **CURLULFLAG_SEEN** flag set.
 
 # %PROTOCOLS%
 
