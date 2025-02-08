@@ -1580,23 +1580,23 @@ static ParameterError parse_upload_flags(struct OperationConfig *config,
     if(flag_len == 8 && !strncmp(upload_flag, "Answered", 8))
       config->upload_flags |= CURLULFLAG_ANSWERED;
     else if(flag_len == 9 && !strncmp(upload_flag, "!Answered", 9))
-      config->upload_flags &= ~CURLULFLAG_ANSWERED;
+      config->upload_flags &= (unsigned char)~CURLULFLAG_ANSWERED;
     else if(flag_len == 7 && !strncmp(upload_flag, "Deleted", 7))
       config->upload_flags |= CURLULFLAG_DELETED;
     else if(flag_len == 8 && !strncmp(upload_flag, "!Deleted", 8))
-      config->upload_flags &= ~CURLULFLAG_DELETED;
+      config->upload_flags &= (unsigned char)~CURLULFLAG_DELETED;
     else if(flag_len == 5 && !strncmp(upload_flag, "Draft", 5))
       config->upload_flags |= CURLULFLAG_DRAFT;
     else if(flag_len == 6 && !strncmp(upload_flag, "!Draft", 6))
-      config->upload_flags &= ~CURLULFLAG_DRAFT;
+      config->upload_flags &= (unsigned char)~CURLULFLAG_DRAFT;
     else if(flag_len == 7 && !strncmp(upload_flag, "Flagged", 7))
       config->upload_flags |= CURLULFLAG_FLAGGED;
     else if(flag_len == 8 && !strncmp(upload_flag, "!Flagged", 8))
-      config->upload_flags &= ~CURLULFLAG_FLAGGED;
+      config->upload_flags &= (unsigned char)~CURLULFLAG_FLAGGED;
     else if(flag_len == 4 && !strncmp(upload_flag, "Seen", 4))
       config->upload_flags |= CURLULFLAG_SEEN;
     else if(flag_len == 5 && !strncmp(upload_flag, "!Seen", 5))
-      config->upload_flags &= ~CURLULFLAG_SEEN;
+      config->upload_flags &= (unsigned char)~CURLULFLAG_SEEN;
     else {
       err = PARAM_OPTION_UNKNOWN;
       break;
