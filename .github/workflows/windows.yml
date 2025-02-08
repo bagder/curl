@@ -689,6 +689,9 @@ jobs:
             ldflags='-OPT:NOREF -OPT:NOICF -APPCONTAINER:NO'
             vsglobals=';AppxPackage=false;WindowsAppContainer=false'
           fi
+          [ '${{ matrix.arch }}' = 'arm64' ] && options+=' -A ARM64'
+          [ '${{ matrix.arch }}' = 'x64' ] && options+=' -A x64'
+          [ '${{ matrix.arch }}' = 'x86' ] && options+=' -A Win32'
           cmake -B bld ${options} \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLATION_ROOT/installed" \
@@ -753,7 +756,7 @@ jobs:
         if: ${{ matrix.tflags != 'skipall' && matrix.tflags != 'skiprun' }}
         timeout-minutes: 10
         run: |
-          export TFLAGS='-j8 ~WebSockets ~SCP ~612 ${{ matrix.tflags }}'
+          export TFLAGS='-j4 ~WebSockets ~SCP ~612 ${{ matrix.tflags }}'
           if [[ '${{ matrix.install }}' = *'libssh2[core,zlib]'* ]]; then
             TFLAGS+=' ~SFTP'
           elif [[ '${{ matrix.install }}' = *'libssh '* ]]; then

@@ -1,11 +1,10 @@
 <testcase>
 <info>
 <keywords>
-FILE
-config
+HTTP
+netrc
 </keywords>
 </info>
-
 #
 # Server-side
 <reply>
@@ -17,21 +16,20 @@ config
 <server>
 none
 </server>
+<features>
+http
+</features>
 <name>
-config file with overly long option
+netrc with missing netrc file
 </name>
 <command>
--K %LOGDIR/config%TESTNUMBER file://de\>v/null
+--netrc --netrc-file %LOGDIR/netrc%TESTNUMBER http://user1@http.example/
 </command>
-<file name="%LOGDIR/config%TESTNUMBER">
-%repeat[20000 x D]%
-</file>
 </client>
 
 #
 # Verify data after the test has been "shot"
 <verify>
-# the used option in the config file is too long
 <errorcode>
 26
 </errorcode>

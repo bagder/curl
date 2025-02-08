@@ -2329,8 +2329,8 @@ if test X"$OPT_LIBSSH2" != Xno; then
   CPPFLAGS="$CPPFLAGS $CPP_SSH2"
   LIBS="$LIB_SSH2 $LIBS"
 
-  dnl check for function added in libssh2 version 1.0
-  AC_CHECK_LIB(ssh2, libssh2_session_block_directions)
+  dnl check for function added in libssh2 version 1.2.8
+  AC_CHECK_LIB(ssh2, libssh2_free)
 
   AC_CHECK_HEADER(libssh2.h,
     curl_ssh_msg="enabled (libssh2)"
@@ -4080,7 +4080,10 @@ AC_CHECK_FUNCS([\
 ])
 
 if test "$curl_cv_native_windows" != 'yes'; then
-  AC_CHECK_FUNCS([sched_yield])
+  AC_CHECK_FUNCS([\
+  sched_yield \
+  realpath \
+  ])
   CURL_CHECK_FUNC_STRCASECMP
   CURL_CHECK_FUNC_STRCMPI
   CURL_CHECK_FUNC_STRICMP
@@ -5017,7 +5020,7 @@ if test "x$USE_ARES" = "x1" -o "x$USE_THREADS_POSIX" = "x1" \
                             -o "x$USE_THREADS_WIN32" = "x1"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES AsynchDNS"
 fi
-if test "x$USE_ARES" = "x1" -a "$want_threaded_resolver" = "yes"; then
+if test "x$USE_ARES" = "x1" -a "$want_threaded_resolver" = "yes" -a "x$want_httpsrr" != "xno"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES asyn-rr"
 fi
 if test "x$IDN_ENABLED" = "x1"; then

@@ -51,7 +51,7 @@ env:
   # renovate: datasource=github-tags depName=nibanks/msh3 versioning=semver registryUrl=https://github.com
   msh3-version: 0.6.0
   # renovate: datasource=github-tags depName=awslabs/aws-lc versioning=semver registryUrl=https://github.com
-  awslc-version: 1.42.0
+  awslc-version: 1.45.0
   # handled in renovate.json
   openssl-version: 3.4.0
   # handled in renovate.json
@@ -333,14 +333,6 @@ jobs:
             zlib-dev brotli-dev zstd-dev libidn2-dev openldap-dev heimdal-dev libpsl-dev \
             py3-impacket py3-asn1 py3-six py3-pycryptodomex \
             perl-time-hires openssh stunnel sudo git
-
-      - name: 'fix kernel mmap rnd bits'
-        # Asan in llvm 14 provided in ubuntu 22.04 is incompatible with
-        # high-entropy ASLR in much newer kernels that GitHub runners are
-        # using leading to random crashes: https://reviews.llvm.org/D148280
-        # See https://github.com/actions/runner-images/issues/9491
-        continue-on-error: true
-        run: sudo sysctl vm.mmap_rnd_bits=28
 
       - name: 'cache bearssl'
         if: contains(matrix.build.install_steps, 'bearssl')

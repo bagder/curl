@@ -2427,6 +2427,7 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      */
     return Curl_setstropt(&data->set.str[STRING_SSH_PRIVATE_KEY], ptr);
 
+#if defined(USE_LIBSSH2) || defined(USE_LIBSSH)
   case CURLOPT_SSH_HOST_PUBLIC_KEY_MD5:
     /*
      * Option to allow for the MD5 of the host public key to be checked
@@ -2439,7 +2440,7 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      * Store the filename to read known hosts from.
      */
     return Curl_setstropt(&data->set.str[STRING_SSH_KNOWNHOSTS], ptr);
-
+#endif
   case CURLOPT_SSH_KEYDATA:
     /*
      * Custom client data to pass to the SSH keyfunc callback
