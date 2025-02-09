@@ -27,8 +27,9 @@ versions of libs and build tools.
  - OpenSSL      0.9.7
  - GnuTLS       3.1.10
  - zlib         1.2.0.4
- - libssh2      1.0
- - c-ares       1.16.0
+ - libssh2      1.2.8
+ - c-ares       1.6.0
+ - libssh       0.9.0
  - libidn2      2.0.0
  - wolfSSL      3.4.6
  - OpenLDAP     2.0

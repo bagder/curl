@@ -138,14 +138,14 @@ CURLcode Curl_resolver_duphandle(struct Curl_easy *easy, void **to, void *from)
   return Curl_resolver_init(easy, to);
 }
 
-static void destroy_async_data(struct Curl_async *);
+static void destroy_async_data(struct Curl_easy *);
 
 /*
  * Cancel all possibly still on-going resolves for this connection.
  */
 void Curl_resolver_cancel(struct Curl_easy *data)
 {
-  destroy_async_data(&data->state.async);
+  destroy_async_data(data);
 }
 
 /* This function is used to init a threaded resolve */
@@ -282,14 +282,6 @@ CURL_STDCALL getaddrinfo_thread(void *arg)
   struct thread_data *td = tsd->td;
   char service[12];
   int rc;
-#ifndef CURL_DISABLE_SOCKETPAIR
-#ifdef USE_EVENTFD
-  const void *buf;
-  const uint64_t val = 1;
-#else
-  char buf[1];
-#endif
-#endif
 
   msnprintf(service, sizeof(service), "%d", tsd->port);
 
@@ -315,9 +307,9 @@ CURL_STDCALL getaddrinfo_thread(void *arg)
 #ifndef CURL_DISABLE_SOCKETPAIR
     if(tsd->sock_pair[1] != CURL_SOCKET_BAD) {
 #ifdef USE_EVENTFD
-      buf = &val;
+      const uint64_t buf[1] = { 1 };
 #else
-      buf[0] = 1;
+      const char buf[1] = { 1 };
 #endif
       /* DNS has been resolved, signal client task */
       if(wakeup_write(tsd->sock_pair[1], buf, sizeof(buf)) < 0) {
@@ -377,14 +369,17 @@ CURL_STDCALL gethostbyname_thread(void *arg)
 /*
  * destroy_async_data() cleans up async resolver data and thread handle.
  */
-static void destroy_async_data(struct Curl_async *async)
+static void destroy_async_data(struct Curl_easy *data)
 {
+  struct Curl_async *async;
+  DEBUGASSERT(data);
+  async = &data->state.async;
+  DEBUGASSERT(async);
   if(async->tdata) {
     struct thread_data *td = async->tdata;
     bool done;
 #ifndef CURL_DISABLE_SOCKETPAIR
     curl_socket_t sock_rd = td->tsd.sock_pair[0];
-    struct Curl_easy *data = td->tsd.data;
 #endif
 
 #ifdef USE_HTTPSRR_ARES
@@ -500,7 +495,7 @@ static bool init_resolve_thread(struct Curl_easy *data,
   return TRUE;
 
 err_exit:
-  destroy_async_data(asp);
+  destroy_async_data(data);
 
 errno_exit:
   errno = err;
@@ -539,7 +534,7 @@ static CURLcode thread_wait_resolv(struct Curl_easy *data,
     /* a name was not resolved, report error */
     result = Curl_resolver_error(data);
 
-  destroy_async_data(&data->state.async);
+  destroy_async_data(data);
 
   if(!data->state.async.dns && report)
     connclose(data->conn, "asynch resolve failed");
@@ -617,7 +612,7 @@ CURLcode Curl_resolver_is_resolved(struct Curl_easy *data,
 
     if(!data->state.async.dns) {
       CURLcode result = Curl_resolver_error(data);
-      destroy_async_data(&data->state.async);
+      destroy_async_data(data);
       return result;
     }
 #ifdef USE_HTTPSRR_ARES
@@ -625,13 +620,13 @@ CURLcode Curl_resolver_is_resolved(struct Curl_easy *data,
       struct Curl_https_rrinfo *lhrr =
         Curl_memdup(&td->hinfo, sizeof(struct Curl_https_rrinfo));
       if(!lhrr) {
-        destroy_async_data(&data->state.async);
+        destroy_async_data(data);
         return CURLE_OUT_OF_MEMORY;
       }
       data->state.async.dns->hinfo = lhrr;
     }
 #endif
-    destroy_async_data(&data->state.async);
+    destroy_async_data(data);
     *entry = data->state.async.dns;
   }
   else {
@@ -665,9 +660,11 @@ int Curl_resolver_getsock(struct Curl_easy *data, curl_socket_t *socks)
   timediff_t milli;
   timediff_t ms;
   struct resdata *reslv = (struct resdata *)data->state.async.resolver;
-  int socketi = 0;
 #ifndef CURL_DISABLE_SOCKETPAIR
   struct thread_data *td = data->state.async.tdata;
+#endif
+#if !defined(CURL_DISABLE_SOCKETPAIR) || defined(USE_HTTPSRR_ARES)
+  int socketi = 0;
 #else
   (void)socks;
 #endif
@@ -685,8 +682,7 @@ int Curl_resolver_getsock(struct Curl_easy *data, curl_socket_t *socks)
   if(td) {
     /* return read fd to client for polling the DNS resolution status */
     socks[socketi] = td->tsd.sock_pair[0];
-    td->tsd.data = data;
-    ret_val = GETSOCK_READSOCK(socketi);
+    ret_val |= GETSOCK_READSOCK(socketi);
   }
   else {
 #endif
