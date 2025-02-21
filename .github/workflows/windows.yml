@@ -369,7 +369,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        shell: msys2 {0}
+        shell: C:\msys64\usr\bin\bash.exe {0}
     strategy:
       matrix:
         include:
@@ -396,13 +396,6 @@ jobs:
             tflags: 'skiprun'
       fail-fast: false
     steps:
-      - uses: msys2/setup-msys2@d44ca8e88d8b43d56cf5670f91747359d5537f97 # v2
-        with:
-          msystem: mingw64
-          release: false
-          path-type: inherit
-          install: mingw-w64-x86_64-ninja
-
       - name: 'cache compiler (gcc ${{ matrix.env }})'
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
         id: cache-compiler
@@ -432,10 +425,10 @@ jobs:
       - name: 'configure'
         timeout-minutes: 5
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
           [ '${{ matrix.type }}' = 'Debug' ] && options+=' -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG='
           [ '${{ matrix.type }}' = 'Release' ] && options+=' -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE='
-          cmake -B bld -G Ninja ${options} \
+          cmake -B bld -G 'MSYS Makefiles' ${options} \
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_BUILD_TYPE='${{ matrix.type }}' \
             -DCMAKE_UNITY_BUILD=ON -DCMAKE_UNITY_BUILD_BATCH_SIZE=30 -DCURL_TEST_BUNDLES=ON \
@@ -455,7 +448,7 @@ jobs:
       - name: 'build'
         timeout-minutes: 5
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
           cmake --build bld --config '${{ matrix.type }}' --parallel 5
 
       - name: 'curl version'
@@ -469,7 +462,7 @@ jobs:
         if: ${{ matrix.tflags != 'skipall' }}
         timeout-minutes: 10
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
           cmake --build bld --config '${{ matrix.type }}' --parallel 5 --target testdeps
 
       - name: 'install test prereqs'
@@ -493,7 +486,7 @@ jobs:
         if: ${{ matrix.tflags != 'skipall' && matrix.tflags != 'skiprun' }}
         timeout-minutes: 10
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
           export TFLAGS='-j8 ~WebSockets ${{ matrix.tflags }}'
           if [ -x "$(cygpath "${SYSTEMROOT}/System32/curl.exe")" ]; then
             TFLAGS+=" -ac $(cygpath "${SYSTEMROOT}/System32/curl.exe")"
@@ -504,7 +497,7 @@ jobs:
       - name: 'build examples'
         timeout-minutes: 5
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
           cmake --build bld --config '${{ matrix.type }}' --parallel 5 --target curl-examples
 
   linux-cross-mingw-w64:
