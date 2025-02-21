@@ -194,6 +194,8 @@ jobs:
         if: ${{ matrix.sys == 'msys' }}
         with:
           msystem: ${{ matrix.sys }}
+          release: false
+          path-type: inherit
           # https://packages.msys2.org/search
           install: >-
             gcc
