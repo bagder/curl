@@ -212,6 +212,8 @@ jobs:
         if: ${{ matrix.sys != 'msys' }}
         with:
           msystem: ${{ matrix.sys }}
+          release: false
+          path-type: inherit
           install: >-
             mingw-w64-${{ matrix.env }}-cc
             mingw-w64-${{ matrix.env }}-${{ matrix.build }} ${{ matrix.build == 'autotools' && 'make' || '' }}
