@@ -410,8 +410,7 @@ jobs:
           release: false
           cache: false
           path-type: inherit
-          install:
-          # mingw-w64-x86_64-ninja ${{ matrix.install }}
+          install: mingw-w64-x86_64-ninja ${{ matrix.install }}
 
       - name: 'cache compiler (gcc ${{ matrix.env }})'
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
