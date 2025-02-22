@@ -369,7 +369,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        shell: C:\msys64\usr\bin\bash.exe {0}
+        shell: msys2 {0}
     strategy:
       matrix:
         include:
@@ -387,6 +387,14 @@ jobs:
             config: '-DENABLE_DEBUG=ON -DBUILD_SHARED_LIBS=OFF -DCURL_USE_SCHANNEL=ON -DENABLE_UNICODE=ON'
             type: 'Release'
             tflags: '~2301 ~2302 ~2310 ~3027 ~3023 ~3024 ~1451'
+          - name: 'schannel openssl U'
+            env: '7.3.0-x86_64'
+            dir: 'mingw64'
+            url: 'https://downloads.sourceforge.net/mingw-w64/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/7.3.0/threads-win32/seh/x86_64-7.3.0-release-win32-seh-rt_v5-rev0.7z'
+            config: '-DENABLE_DEBUG=ON -DBUILD_SHARED_LIBS=OFF -DCURL_USE_SCHANNEL=ON -DENABLE_UNICODE=ON -DCURL_USE_OPENSSL=ON'
+            install: mingw-w64-x86_64-openssl
+            type: 'Release'
+            tflags: 'skipall'
           - name: 'schannel !unity'
             env: '6.4.0-i686'
             dir: 'mingw32'
@@ -396,6 +404,14 @@ jobs:
             tflags: 'skiprun'
       fail-fast: false
     steps:
+      - uses: msys2/setup-msys2@d44ca8e88d8b43d56cf5670f91747359d5537f97 # v2
+        with:
+          msystem: mingw64
+          release: false
+          cache: false
+          path-type: inherit
+          install: ${{ matrix.install }}
+
       - name: 'cache compiler (gcc ${{ matrix.env }})'
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
         id: cache-compiler
@@ -425,7 +441,7 @@ jobs:
       - name: 'configure'
         timeout-minutes: 5
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
           [ '${{ matrix.type }}' = 'Debug' ] && options+=' -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG='
           [ '${{ matrix.type }}' = 'Release' ] && options+=' -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE='
           cmake -B bld -G "${{ contains(matrix.url, '/winlibs_mingw/') && 'Ninja' || 'MSYS Makefiles' }}" ${options} \
@@ -448,7 +464,7 @@ jobs:
       - name: 'build'
         timeout-minutes: 5
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
           cmake --build bld --config '${{ matrix.type }}' --parallel 5
 
       - name: 'curl version'
@@ -462,7 +478,7 @@ jobs:
         if: ${{ matrix.tflags != 'skipall' }}
         timeout-minutes: 10
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
           cmake --build bld --config '${{ matrix.type }}' --parallel 5 --target testdeps
 
       - name: 'install test prereqs'
@@ -486,7 +502,7 @@ jobs:
         if: ${{ matrix.tflags != 'skipall' && matrix.tflags != 'skiprun' }}
         timeout-minutes: 10
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
           export TFLAGS='-j8 ~WebSockets ${{ matrix.tflags }}'
           if [ -x "$(cygpath "${SYSTEMROOT}/System32/curl.exe")" ]; then
             TFLAGS+=" -ac $(cygpath "${SYSTEMROOT}/System32/curl.exe")"
@@ -497,7 +513,7 @@ jobs:
       - name: 'build examples'
         timeout-minutes: 5
         run: |
-          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:/c/msys64/usr/bin:$PATH"
+          PATH="$(cygpath "${USERPROFILE}")/my-cache/${{ matrix.dir }}/bin:$PATH"
           cmake --build bld --config '${{ matrix.type }}' --parallel 5 --target curl-examples
 
   linux-cross-mingw-w64:
