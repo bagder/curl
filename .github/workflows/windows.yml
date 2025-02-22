@@ -69,6 +69,7 @@ jobs:
             libpsl-devel
             zlib-devel
             libbrotli-devel
+            libzstd-devel
             libnghttp2-devel
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -202,6 +203,7 @@ jobs:
             openssl-devel
             zlib-devel
             brotli-devel
+            libzstd-devel
             libnghttp2-devel
             libpsl-devel
             libssh2-devel
@@ -406,7 +408,14 @@ jobs:
           release: false
           cache: false
           path-type: inherit
-          install: mingw-w64-${{ matrix.env }}-libpsl ${{ matrix.install }}
+          install: >-
+            mingw-w64-${{ matrix.env }}-zlib
+            mingw-w64-${{ matrix.env }}-brotli
+            mingw-w64-${{ matrix.env }}-zstd
+            mingw-w64-${{ matrix.env }}-nghttp2
+            mingw-w64-${{ matrix.env }}-libpsl
+            mingw-w64-${{ matrix.env }}-libssh2
+            ${{ matrix.install }}
 
       - name: 'cache compiler (gcc ${{ matrix.ver }}-${{ matrix.env }})'
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
