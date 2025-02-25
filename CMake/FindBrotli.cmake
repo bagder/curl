@@ -39,7 +39,7 @@
 # - `BROTLI_CFLAGS`:         Required compiler flags.
 # - `BROTLI_VERSION`:        Version of brotli.
 
-set(BROTLI_PC_REQUIRES "libbrotlidec" "libbrotlicommon")
+set(BROTLI_PC_REQUIRES "libbrotlidec" "libbrotlicommon")  # order is significant: brotlidec then brotlicommon
 
 if(CURL_USE_PKGCONFIG AND
    NOT DEFINED BROTLI_INCLUDE_DIR AND
