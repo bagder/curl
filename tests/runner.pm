@@ -88,7 +88,6 @@ use processhelp qw(
     );
 use servers qw(
     checkcmd
-    clearlocks
     initserverconfig
     serverfortest
     stopserver
@@ -1518,7 +1517,6 @@ sub runner_clearlocks {
     if(clearlogs()) {
         logmsg "Warning: log messages were lost\n";
     }
-    clearlocks($lockdir);
     return clearlogs();
 }
 
