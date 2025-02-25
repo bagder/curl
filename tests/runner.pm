@@ -1277,7 +1277,7 @@ sub runner_test_run {
 # Async call runner_clearlocks
 # Called by controller
 sub runnerac_clearlocks {
-    return controlleripccall(\&runner_clearlocks, @_);
+    return controlleripccall(\&runner_clearlocks);
 }
 
 # Async call runner_shutdown
@@ -1513,7 +1513,6 @@ sub ipcrecv {
 ###################################################################
 # Kill the server processes that still have lock files in a directory
 sub runner_clearlocks {
-    my ($lockdir)=@_;
     if(clearlogs()) {
         logmsg "Warning: log messages were lost\n";
     }
