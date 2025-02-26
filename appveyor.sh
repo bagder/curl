@@ -145,7 +145,7 @@ if [ "${TFLAGS}" != 'skipall' ] && \
     cmake --build _bld --config "${PRJ_CFG}" --target test-ci
   else
     (
-      TFLAGS="-a -p !flaky -r -rm ${TFLAGS}"
+      TFLAGS="-a -p !flaky -r ${TFLAGS}"
       cd _bld/tests
       ./runtests.pl
     )
