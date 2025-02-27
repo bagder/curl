@@ -1163,13 +1163,15 @@ static CURLcode cf_osslq_ctx_start(struct Curl_cfilter *cf,
   const struct Curl_sockaddr_ex *peer_addr = NULL;
   BIO *bio = NULL;
   BIO_ADDR *baddr = NULL;
+static const struct alpn_spec ALPN_SPEC_H3 = {
+  { "h3" }, 1
+};
 
   DEBUGASSERT(ctx->initialized);
 
 #define H3_ALPN "\x2h3"
   result = Curl_vquic_tls_init(&ctx->tls, cf, data, &ctx->peer,
-                               H3_ALPN, sizeof(H3_ALPN) - 1,
-                               NULL, NULL, NULL, NULL);
+                               &ALPN_SPEC_H3, NULL, NULL, NULL, NULL);
   if(result)
     goto out;
 
@@ -1718,7 +1720,7 @@ out:
 
 static CURLcode cf_osslq_connect(struct Curl_cfilter *cf,
                                  struct Curl_easy *data,
-                                 bool blocking, bool *done)
+                                 bool *done)
 {
   struct cf_osslq_ctx *ctx = cf->ctx;
   CURLcode result = CURLE_OK;
@@ -1733,7 +1735,7 @@ static CURLcode cf_osslq_connect(struct Curl_cfilter *cf,
 
   /* Connect the UDP filter first */
   if(!cf->next->connected) {
-    result = Curl_conn_cf_connect(cf->next, data, blocking, done);
+    result = Curl_conn_cf_connect(cf->next, data, done);
     if(result || !*done)
       return result;
   }
@@ -1980,7 +1982,7 @@ static ssize_t cf_osslq_send(struct Curl_cfilter *cf, struct Curl_easy *data,
   ssize_t nwritten;
   CURLcode result;
 
-  (void)eos; /* TODO: use to end stream */
+  (void)eos; /* use to end stream */
   CF_DATA_SAVE(save, cf, data);
   DEBUGASSERT(cf->connected);
   DEBUGASSERT(ctx->tls.ossl.ssl);

@@ -207,8 +207,8 @@ class TestCaddy:
 
     @pytest.mark.parametrize("proto", ['http/1.1', 'h2', 'h3'])
     def test_08_08_earlydata(self, env: Env, httpd, caddy, proto):
-        if not env.curl_uses_lib('gnutls'):
-            pytest.skip('TLS earlydata only implemented in GnuTLS')
+        if not env.curl_uses_lib('gnutls') and not env.curl_uses_lib('wolfssl'):
+            pytest.skip('TLS earlydata only implemented in GnuTLS/wolfSSL')
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
         count = 2
@@ -234,7 +234,7 @@ class TestCaddy:
                 earlydata[int(m.group(1))] = int(m.group(2))
         assert earlydata[0] == 0, f'{earlydata}'
         if proto == 'h3':
-            assert earlydata[1] == 71, f'{earlydata}'
+            assert earlydata[1] == 113, f'{earlydata}'
         else:
             # Caddy does not support early data on TCP
             assert earlydata[1] == 0, f'{earlydata}'

@@ -22,13 +22,14 @@
 #
 ###########################################################################
 
-noinst_PROGRAMS = getpart resolve rtspd sockfilt sws tftpd    \
- socksd disabled mqttd
+noinst_PROGRAMS = resolve rtspd sockfilt sws tftpd socksd disabled mqttd
 
 CURLX_SRCS = \
  ../../lib/mprintf.c \
  ../../lib/nonblock.c \
  ../../lib/strtoofft.c \
+ ../../lib/strparse.c \
+ ../../lib/strequal.c \
  ../../lib/warnless.c \
  ../../lib/timediff.c \
  ../../lib/dynbuf.c \
@@ -41,10 +42,12 @@ CURLX_HDRS = \
  ../../lib/curlx.h \
  ../../lib/nonblock.h \
  ../../lib/strtoofft.h \
+ ../../lib/strcase.h \
  ../../lib/warnless.h \
  ../../lib/timediff.h \
  ../../lib/curl_ctype.h \
  ../../lib/dynbuf.h \
+ ../../lib/strcase.h \
  ../../lib/strdup.h \
  ../../lib/curl_get_line.h \
  ../../lib/curl_multibyte.h
@@ -60,12 +63,9 @@ USEFUL = \
 
 UTIL = \
  util.c \
- util.h
-
-getpart_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) \
- testpart.c
-getpart_LDADD = @CURL_NETWORK_AND_TIME_LIBS@
-getpart_CFLAGS = $(AM_CFLAGS)
+ util.h \
+ ../../lib/strerror.c \
+ ../../lib/strerror.h
 
 resolve_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  resolve.c

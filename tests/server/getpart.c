@@ -25,13 +25,20 @@
 
 #include "getpart.h"
 
+#ifdef TEST
+#include "curl/curl.h"
+#include "warnless.h"
+#else
 #include "curlx.h" /* from the private lib dir */
+#endif
 
 #include "curl_base64.h"
 #include "curl_memory.h"
 
+#ifndef TEST
 /* include memdebug.h last */
 #include "memdebug.h"
+#endif
 
 #define EAT_SPACE(p) while(*(p) && ISSPACE(*(p))) (p)++
 
@@ -123,8 +130,10 @@ static int readline(char **buffer, size_t *bufsize, size_t *length,
   for(;;) {
     int bytestoread = curlx_uztosi(*bufsize - offset);
 
-    if(!fgets(*buffer + offset, bytestoread, stream))
+    if(!fgets(*buffer + offset, bytestoread, stream)) {
+      *length = 0;
       return (offset != 0) ? GPE_OK : GPE_END_OF_FILE;
+    }
 
     *length = offset + line_length(*buffer + offset, bytestoread);
     if(*(*buffer + *length - 1) == '\n')
@@ -477,3 +486,29 @@ int getpart(char **outbuf, size_t *outlen,
 
   return error;
 }
+
+#ifdef TEST
+#include "../../lib/base64.c"
+#include "../../lib/warnless.c"
+/* Build with:
+ * $ gcc getpart.c -DTEST -I../../include -I../../lib -DHAVE_CONFIG_H
+ */
+int main(int argc, char **argv)
+{
+  if(argc < 3) {
+    printf("./getpart main sub\n");
+  }
+  else {
+    char  *part;
+    size_t partlen;
+    int rc = getpart(&part, &partlen, argv[1], argv[2], stdin);
+    size_t i;
+    if(rc)
+      return rc;
+    for(i = 0; i < partlen; i++)
+      printf("%c", part[i]);
+    free(part);
+  }
+  return 0;
+}
+#endif

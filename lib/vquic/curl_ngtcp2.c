@@ -394,7 +394,7 @@ static void quic_printf(void *user_data, const char *fmt, ...)
   struct Curl_cfilter *cf = user_data;
   struct cf_ngtcp2_ctx *ctx = cf->ctx;
 
-  (void)ctx;  /* TODO: need an easy handle to infof() message */
+  (void)ctx;  /* need an easy handle to infof() message */
   va_list ap;
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
@@ -481,17 +481,27 @@ static int cf_ngtcp2_handshake_completed(ngtcp2_conn *tconn, void *user_data)
    * the handshake time when we really did connect */
   if(ctx->use_earlydata)
     Curl_pgrsTimeWas(data, TIMER_APPCONNECT, ctx->handshake_at);
-#ifdef USE_GNUTLS
   if(ctx->use_earlydata) {
+#ifdef USE_GNUTLS
     int flags = gnutls_session_get_flags(ctx->tls.gtls.session);
     ctx->earlydata_accepted = !!(flags & GNUTLS_SFLAGS_EARLY_DATA);
+#endif
+#ifdef USE_WOLFSSL
+#ifdef WOLFSSL_EARLY_DATA
+    ctx->earlydata_accepted =
+      (wolfSSL_get_early_data_status(ctx->tls.wssl.ssl) !=
+       WOLFSSL_EARLY_DATA_REJECTED);
+#else
+    DEBUGASSERT(0); /* should not come here if ED is disabled. */
+    ctx->earlydata_accepted = FALSE;
+#endif /* WOLFSSL_EARLY_DATA */
+#endif
     CURL_TRC_CF(data, cf, "server did%s accept %zu bytes of early data",
                 ctx->earlydata_accepted ? "" : " not", ctx->earlydata_skip);
     Curl_pgrsEarlyData(data, ctx->earlydata_accepted ?
                               (curl_off_t)ctx->earlydata_skip :
                              -(curl_off_t)ctx->earlydata_skip);
   }
-#endif
   return 0;
 }
 
@@ -1591,7 +1601,7 @@ static ssize_t cf_ngtcp2_send(struct Curl_cfilter *cf, struct Curl_easy *data,
   if(ctx->tls_vrfy_result)
     return ctx->tls_vrfy_result;
 
-  (void)eos; /* TODO: use for stream EOF and block handling */
+  (void)eos; /* use for stream EOF and block handling */
   result = cf_progress_ingress(cf, data, &pktx);
   if(result) {
     *err = result;
@@ -1759,7 +1769,7 @@ static ssize_t read_pkt_to_send(void *userp,
 
     if(ctx->h3conn && ngtcp2_conn_get_max_data_left(ctx->qconn)) {
       veccnt = nghttp3_conn_writev_stream(ctx->h3conn, &stream_id, &fin, vec,
-                                          sizeof(vec) / sizeof(vec[0]));
+                                          CURL_ARRAYSIZE(vec));
       if(veccnt < 0) {
         failf(x->data, "nghttp3_conn_writev_stream returned error: %s",
               nghttp3_strerror((int)veccnt));
@@ -1965,8 +1975,8 @@ static CURLcode h3_data_pause(struct Curl_cfilter *cf,
                               struct Curl_easy *data,
                               bool pause)
 {
-  /* TODO: there seems right now no API in ngtcp2 to shrink/enlarge
-   * the streams windows. As we do in HTTP/2. */
+  /* There seems to exist no API in ngtcp2 to shrink/enlarge the streams
+   * windows. As we do in HTTP/2. */
   if(!pause) {
     h3_drain_stream(cf, data);
     Curl_expire(data, 0, EXPIRE_RUN_NOW);
@@ -2257,8 +2267,23 @@ static int wssl_quic_new_session_cb(WOLFSSL *ssl, WOLFSSL_SESSION *session)
     struct Curl_easy *data = CF_DATA_CURRENT(cf);
     DEBUGASSERT(data);
     if(data && ctx) {
+      ngtcp2_ssize tplen;
+      uint8_t tpbuf[256];
+      unsigned char *quic_tp = NULL;
+      size_t quic_tp_len = 0;
+
+      tplen = ngtcp2_conn_encode_0rtt_transport_params(ctx->qconn, tpbuf,
+                                                       sizeof(tpbuf));
+      if(tplen < 0)
+        CURL_TRC_CF(data, cf, "error encoding 0RTT transport data: %s",
+                    ngtcp2_strerror((int)tplen));
+      else {
+        quic_tp = (unsigned char *)tpbuf;
+        quic_tp_len = (size_t)tplen;
+      }
       (void)Curl_wssl_cache_session(cf, data, ctx->peer.scache_key,
-                                    session, wolfSSL_version(ssl), "h3");
+                                    session, wolfSSL_version(ssl),
+                                    "h3", quic_tp, quic_tp_len);
     }
   }
   return 0;
@@ -2308,13 +2333,13 @@ static CURLcode cf_ngtcp2_tls_ctx_setup(struct Curl_cfilter *cf,
   }
 
 #elif defined(USE_WOLFSSL)
-  if(ngtcp2_crypto_wolfssl_configure_client_context(ctx->wssl.ctx) != 0) {
+  if(ngtcp2_crypto_wolfssl_configure_client_context(ctx->wssl.ssl_ctx) != 0) {
     failf(data, "ngtcp2_crypto_wolfssl_configure_client_context failed");
     return CURLE_FAILED_INIT;
   }
   if(ssl_config->primary.cache_session) {
     /* Register to get notified when a new session is received */
-    wolfSSL_CTX_sess_set_new_cb(ctx->wssl.ctx, wssl_quic_new_session_cb);
+    wolfSSL_CTX_sess_set_new_cb(ctx->wssl.ssl_ctx, wssl_quic_new_session_cb);
   }
 #endif
   return CURLE_OK;
@@ -2322,6 +2347,7 @@ static CURLcode cf_ngtcp2_tls_ctx_setup(struct Curl_cfilter *cf,
 
 static CURLcode cf_ngtcp2_on_session_reuse(struct Curl_cfilter *cf,
                                            struct Curl_easy *data,
+                                           struct alpn_spec *alpns,
                                            struct Curl_ssl_session *scs,
                                            bool *do_early_data)
 {
@@ -2332,10 +2358,19 @@ static CURLcode cf_ngtcp2_on_session_reuse(struct Curl_cfilter *cf,
 #ifdef USE_GNUTLS
   ctx->earlydata_max =
     gnutls_record_get_max_early_data_size(ctx->tls.gtls.session);
+#endif
+#ifdef USE_WOLFSSL
+#ifdef WOLFSSL_EARLY_DATA
+  ctx->earlydata_max = scs->earlydata_max;
+#else
+  ctx->earlydata_max = 0;
+#endif /* WOLFSSL_EARLY_DATA */
+#endif
+#if defined(USE_GNUTLS) || defined(USE_WOLFSSL)
   if((!ctx->earlydata_max)) {
     CURL_TRC_CF(data, cf, "SSL session does not allow earlydata");
   }
-  else if(strcmp("h3", scs->alpn)) {
+  else if(!Curl_alpn_contains_proto(alpns, scs->alpn)) {
     CURL_TRC_CF(data, cf, "SSL session from different ALPN, no early data");
   }
   else if(!scs->quic_tp || !scs->quic_tp_len) {
@@ -2363,6 +2398,7 @@ static CURLcode cf_ngtcp2_on_session_reuse(struct Curl_cfilter *cf,
   (void)data;
   (void)ctx;
   (void)scs;
+  (void)alpns;
 #endif
   return result;
 }
@@ -2380,6 +2416,9 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
   CURLcode result;
   const struct Curl_sockaddr_ex *sockaddr = NULL;
   int qfd;
+static const struct alpn_spec ALPN_SPEC_H3 = {
+  { "h3", "h3-29" }, 2
+};
 
   DEBUGASSERT(ctx->initialized);
   ctx->dcid.datalen = NGTCP2_MAX_CIDLEN;
@@ -2423,9 +2462,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
   if(rc)
     return CURLE_QUIC_CONNECT_ERROR;
 
-#define H3_ALPN "\x2h3\x5h3-29"
-  result = Curl_vquic_tls_init(&ctx->tls, cf, data, &ctx->peer,
-                               H3_ALPN, sizeof(H3_ALPN) - 1,
+  result = Curl_vquic_tls_init(&ctx->tls, cf, data, &ctx->peer, &ALPN_SPEC_H3,
                                cf_ngtcp2_tls_ctx_setup, &ctx->tls,
                                &ctx->conn_ref,
                                cf_ngtcp2_on_session_reuse);
@@ -2438,7 +2475,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
 #elif defined(USE_GNUTLS)
   ngtcp2_conn_set_tls_native_handle(ctx->qconn, ctx->tls.gtls.session);
 #elif defined(USE_WOLFSSL)
-  ngtcp2_conn_set_tls_native_handle(ctx->qconn, ctx->tls.wssl.handle);
+  ngtcp2_conn_set_tls_native_handle(ctx->qconn, ctx->tls.wssl.ssl);
 #else
   #error "ngtcp2 TLS backend not defined"
 #endif
@@ -2453,7 +2490,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
 
 static CURLcode cf_ngtcp2_connect(struct Curl_cfilter *cf,
                                   struct Curl_easy *data,
-                                  bool blocking, bool *done)
+                                  bool *done)
 {
   struct cf_ngtcp2_ctx *ctx = cf->ctx;
   CURLcode result = CURLE_OK;
@@ -2468,7 +2505,7 @@ static CURLcode cf_ngtcp2_connect(struct Curl_cfilter *cf,
 
   /* Connect the UDP filter first */
   if(!cf->next->connected) {
-    result = Curl_conn_cf_connect(cf->next, data, blocking, done);
+    result = Curl_conn_cf_connect(cf->next, data, done);
     if(result || !*done)
       return result;
   }

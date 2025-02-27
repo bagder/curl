@@ -50,12 +50,6 @@
 #endif
 
 #ifdef HAVE_UV_H
-/* Hack for Unity mode */
-#ifdef HEADER_CURL_MEMDEBUG_H
-#undef HEADER_CURL_MEMDEBUG_H
-#undef freeaddrinfo
-#undef getaddrinfo
-#endif
 /* this is for libuv-enabled debug builds only */
 #include <uv.h>
 #endif
@@ -586,9 +580,9 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
            * or close/re-open the file so that the next attempt starts
            * over from the beginning.
            *
-           * TODO: similar action for the upload case. We might need
-           * to start over reading from a previous point if we have
-           * uploaded something when this was returned.
+           * For the upload case, we might need to start over reading from a
+           * previous point if we have uploaded something when this was
+           * returned.
            */
           break;
         }
@@ -670,7 +664,8 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
               outs->bytes);
         fflush(outs->stream);
         /* truncate file at the position where we started appending */
-#if defined(HAVE_FTRUNCATE) && !defined(__DJGPP__) && !defined(__AMIGA__)
+#if defined(HAVE_FTRUNCATE) && !defined(__DJGPP__) && !defined(__AMIGA__) && \
+  !defined(__MINGW32CE__)
         if(ftruncate(fileno(outs->stream), outs->init)) {
           /* when truncate fails, we cannot just append as then we will
              create something strange, bail out */
@@ -1093,8 +1088,6 @@ static CURLcode config2setopts(struct GlobalConfig *global,
 
     if(config->httpversion)
       my_setopt_enum(curl, CURLOPT_HTTP_VERSION, config->httpversion);
-    else if(feature_http2)
-      my_setopt_enum(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
 
     /* curl 7.19.1 (the 301 version existed in 7.18.2),
        303 was added in 7.26.0 */
@@ -1163,16 +1156,24 @@ static CURLcode config2setopts(struct GlobalConfig *global,
       my_setopt(curl, CURLOPT_SSH_COMPRESSION, 1L);
 
     if(!config->insecure_ok) {
-      char *known = findfile(".ssh/known_hosts", FALSE);
+      char *known = global->knownhosts;
+
+      if(!known)
+        known = findfile(".ssh/known_hosts", FALSE);
       if(known) {
         /* new in curl 7.19.6 */
         result = res_setopt_str(curl, CURLOPT_SSH_KNOWNHOSTS, known);
-        curl_free(known);
-        if(result == CURLE_UNKNOWN_OPTION)
-          /* libssh2 version older than 1.1.1 */
-          result = CURLE_OK;
-        if(result)
+        if(result) {
+          global->knownhosts = NULL;
+          curl_free(known);
           return result;
+        }
+        /* store it in global to avoid repeated checks */
+        global->knownhosts = known;
+      }
+      else if(!config->hostpubmd5 && !config->hostpubsha256) {
+        errorf(global, "Couldn't find a known_hosts file");
+        return CURLE_FAILED_INIT;
       }
       else
         warnf(global, "Couldn't find a known_hosts file");
@@ -1396,7 +1397,7 @@ static CURLcode config2setopts(struct GlobalConfig *global,
   my_setopt(curl, CURLOPT_COOKIESESSION, config->cookiesession ?
             1L : 0L);
 
-  my_setopt_enum(curl, CURLOPT_TIMECONDITION, (long)config->timecond);
+  my_setopt_enum(curl, CURLOPT_TIMECONDITION, config->timecond);
   my_setopt(curl, CURLOPT_TIMEVALUE_LARGE, config->condtime);
   my_setopt_str(curl, CURLOPT_CUSTOMREQUEST, config->customrequest);
   customrequest_helper(config, config->httpreq, config->customrequest);
@@ -1891,7 +1892,7 @@ static CURLcode single_transfer(struct GlobalConfig *global,
     }
 
     if(!state->urlnum) {
-      if(!config->globoff) {
+      if(!config->globoff && !(urlnode->flags & GETOUT_NOGLOB)) {
         /* Unless explicitly shut off, we expand '{...}' and '[...]'
            expressions and return total number of URLs in pattern set */
         result = glob_url(&state->urls, urlnode->url, &state->urlnum,
@@ -2043,9 +2044,9 @@ static CURLcode single_transfer(struct GlobalConfig *global,
            * the headers, we need to open it in append mode, since transfers
            * might finish in any order.
            * The first transfer just clears the file.
-           * TODO: Consider placing the file handle inside the
-           * OperationConfig, so that it does not need to be opened/closed
-           * for every transfer.
+           *
+           * Consider placing the file handle inside the OperationConfig, so
+           * that it does not need to be opened/closed for every transfer.
            */
           if(config->create_dirs) {
             result = create_dir_hierarchy(config->headerfile, global);
@@ -3014,7 +3015,8 @@ static CURLcode cacertpaths(struct OperationConfig *config)
       fclose(cafile);
       config->cacert = strdup(cacert);
     }
-#elif !defined(CURL_WINDOWS_UWP) && !defined(CURL_DISABLE_CA_SEARCH)
+#elif !defined(CURL_WINDOWS_UWP) && !defined(UNDER_CE) && \
+  !defined(CURL_DISABLE_CA_SEARCH)
     result = FindWin32CACert(config, TEXT("curl-ca-bundle.crt"));
     if(result)
       goto fail;
@@ -3141,7 +3143,12 @@ static CURLcode run_all_transfers(struct GlobalConfig *global,
 CURLcode operate(struct GlobalConfig *global, int argc, argv_item_t argv[])
 {
   CURLcode result = CURLE_OK;
-  char *first_arg = argc > 1 ? curlx_convert_tchar_to_UTF8(argv[1]) : NULL;
+  char *first_arg;
+#ifdef UNDER_CE
+  first_arg = argc > 1 ? strdup(argv[1]) : NULL;
+#else
+  first_arg = argc > 1 ? curlx_convert_tchar_to_UTF8(argv[1]) : NULL;
+#endif
 
 #ifdef HAVE_SETLOCALE
   /* Override locale for number parsing (only) */
@@ -3270,6 +3277,7 @@ CURLcode operate(struct GlobalConfig *global, int argc, argv_item_t argv[])
   }
 
   varcleanup(global);
+  curl_free(global->knownhosts);
 
   return result;
 }

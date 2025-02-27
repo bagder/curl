@@ -44,6 +44,15 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
   list(APPEND _picky "-Werror-implicit-function-declaration")  # clang 1.0  gcc 2.95
 endif()
 
+if(MSVC)
+  if(CMAKE_C_FLAGS MATCHES "[/-]W[0-4]")
+    string(REGEX REPLACE "[/-]W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  endif()
+  list(APPEND _picky "-W4")
+elseif(BORLAND)
+  list(APPEND _picky "-w-")  # Disable warnings on Borland to avoid changing 3rd party code.
+endif()
+
 if(PICKY_COMPILER)
   if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 
@@ -113,6 +122,7 @@ if(PICKY_COMPILER)
       -Wtype-limits                        # clang  2.7  gcc  4.3
       -Wunreachable-code                   # clang  2.7  gcc  4.1
     # -Wunused-macros                      # clang  2.7  gcc  4.1               # Not practical
+    #   -Wno-error=unused-macros           # clang  2.7  gcc  4.1
       -Wunused-parameter                   # clang  2.7  gcc  4.1
       -Wvla                                # clang  2.8  gcc  4.3
     )
@@ -172,12 +182,19 @@ if(PICKY_COMPILER)
           -Wold-style-declaration          #             gcc  4.3
           -Wpragmas                        # clang  3.5  gcc  4.1  appleclang  6.0
           -Wstrict-aliasing=3              #             gcc  4.0
+          -ftree-vrp                       #             gcc  4.3 (required for -Warray-bounds, included in -Wall)
         )
       endif()
-      if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.5 AND MINGW)
+      if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.5)
         list(APPEND _picky_enable
-          -Wno-pedantic-ms-format          #             gcc  4.5 (MinGW-only)
+          -Wjump-misses-init               #             gcc  4.5
         )
+
+        if(MINGW)
+          list(APPEND _picky_enable
+            -Wno-pedantic-ms-format        #             gcc  4.5 (MinGW-only)
+          )
+        endif()
       endif()
       if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.8)
         list(APPEND _picky_enable
@@ -188,7 +205,7 @@ if(PICKY_COMPILER)
       endif()
       if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 5.0)
         list(APPEND _picky_enable
-          -Warray-bounds=2 -ftree-vrp      # clang  3.0  gcc  5.0 (clang default: -Warray-bounds)
+          -Warray-bounds=2                 # clang  3.0  gcc  5.0 (clang default: -Warray-bounds)
         )
       endif()
       if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 6.0)
@@ -251,6 +268,9 @@ if(PICKY_COMPILER)
       endif()
       if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.3 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 4.8)
         list(APPEND _picky "-Wno-type-limits")  # Avoid false positives
+      endif()
+      if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 5.1 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 5.5)
+        list(APPEND _picky "-Wno-conversion")  # Avoid false positives
       endif()
     endif()
   endif()

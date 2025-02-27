@@ -513,7 +513,6 @@ struct ConnectBits {
 #ifdef USE_UNIX_SOCKETS
   BIT(abstract_unix_socket);
 #endif
-  BIT(tls_upgraded);
   BIT(sock_accepted); /* TRUE if the SECONDARYSOCKET was created with
                          accept() */
   BIT(parallel_connect); /* set TRUE when a parallel connect attempt has
@@ -568,11 +567,12 @@ struct hostname {
 struct Curl_async {
   char *hostname;
   struct Curl_dns_entry *dns;
-  struct thread_data *tdata;
+#ifdef CURLRES_ASYNCH
+  struct thread_data thdata;
+#endif
   void *resolver; /* resolver state, if it is used in the URL state -
                      ares_channel e.g. */
   int port;
-  int status; /* if done is TRUE, this is the status from the callback */
   BIT(done);  /* set TRUE when the lookup is complete */
 };
 
@@ -815,9 +815,6 @@ struct connectdata {
     struct curltime start[2]; /* when filter shutdown started */
     unsigned int timeout_ms; /* 0 means no timeout */
   } shutdown;
-  /* Last pollset used in connection shutdown. Used to detect changes
-   * for multi_socket API. */
-  struct easy_pollset shutdown_poll;
 
   struct ssl_primary_config ssl_config;
 #ifndef CURL_DISABLE_PROXY
@@ -1108,7 +1105,6 @@ struct Curl_data_prio_node {
 /**
  * Priority information for an easy handle in relation to others
  * on the same connection.
- * TODO: we need to adapt it to the new priority scheme as defined in RFC 9218
  */
 struct Curl_data_priority {
 #ifdef USE_NGHTTP2
@@ -1313,10 +1309,9 @@ struct UrlState {
     char *proxypasswd;
 #endif
   } aptr;
-  unsigned char httpwant; /* when non-zero, a specific HTTP version requested
-                             to be used in the library's request(s) */
-  unsigned char httpversion; /* the lowest HTTP version*10 reported by any
-                                server involved in this request */
+#ifndef CURL_DISABLE_HTTP
+  struct http_negotiation http_neg;
+#endif
   unsigned char httpreq; /* Curl_HttpReq; what kind of HTTP request (if any)
                             is this */
   unsigned char select_bits; /* != 0 -> bitmask of socket events for this
@@ -1696,6 +1691,9 @@ struct UserDefined {
   struct curl_slist *mail_rcpt; /* linked list of mail recipients */
 #endif
   unsigned int maxconnects; /* Max idle connections in the connection cache */
+#ifdef USE_ECH
+  int tls_ech;      /* TLS ECH configuration  */
+#endif
   unsigned short use_port; /* which port to use (when not using default) */
 #ifndef CURL_DISABLE_BINDLOCAL
   unsigned short localport; /* local port number to bind to */
@@ -1833,9 +1831,6 @@ struct UserDefined {
 #ifndef CURL_DISABLE_WEBSOCKETS
   BIT(ws_raw_mode);
 #endif
-#ifdef USE_ECH
-  int tls_ech;      /* TLS ECH configuration  */
-#endif
 };
 
 #ifndef CURL_DISABLE_MIME
@@ -1887,12 +1882,6 @@ struct Curl_easy {
   CURLcode result;   /* previous result */
 
   struct Curl_message msg; /* A single posted message. */
-
-  /* Array with the plain socket numbers this handle takes care of, in no
-     particular order. Note that all sockets are added to the sockhash, where
-     the state etc are also kept. This array is mostly used to detect when a
-     socket is to be removed from the hash. See singlesocket(). */
-  struct easy_pollset last_poll;
 
   struct Names dns;
   struct Curl_multi *multi;    /* if non-NULL, points to the multi handle

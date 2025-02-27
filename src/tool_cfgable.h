@@ -201,7 +201,7 @@ struct OperationConfig {
   long expect100timeout_ms;
   long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                      0 is valid. default: CURL_HET_DEFAULT. */
-  curl_TimeCond timecond;
+  unsigned long timecond;
   HttpReq httpreq;
   int proxyver;             /* set to CURLPROXY_HTTP* define */
   int ftp_ssl_ccc_mode;
@@ -325,6 +325,8 @@ struct GlobalConfig {
   char *libcurl;                  /* Output libcurl code to this filename */
   char *ssl_sessions;             /* file to load/save SSL session tickets */
   char *help_category;            /* The help category, if set */
+  char *knownhosts;               /* known host path, if set. curl_free()
+                                     this */
   struct tool_var *variables;
   struct OperationConfig *first;
   struct OperationConfig *current;

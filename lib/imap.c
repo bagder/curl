@@ -65,7 +65,7 @@
 #include "socks.h"
 #include "imap.h"
 #include "mime.h"
-#include "strtoofft.h"
+#include "strparse.h"
 #include "strcase.h"
 #include "vtls/vtls.h"
 #include "cfilters.h"
@@ -248,7 +248,7 @@ static bool imap_matchresp(const char *line, size_t len, const char *cmd)
  * response which can be processed by the response handler.
  */
 static bool imap_endofresp(struct Curl_easy *data, struct connectdata *conn,
-                           char *line, size_t len, int *resp)
+                           const char *line, size_t len, int *resp)
 {
   struct IMAP *imap = data->req.p.imap;
   struct imap_conn *imapc = &conn->proto.imapc;
@@ -479,7 +479,6 @@ static CURLcode imap_perform_upgrade_tls(struct Curl_easy *data,
       goto out;
     /* Change the connection handler */
     conn->handler = &Curl_handler_imaps;
-    conn->bits.tls_upgraded = TRUE;
   }
 
   DEBUGASSERT(!imapc->ssldone);
@@ -1196,9 +1195,9 @@ static CURLcode imap_state_fetch_resp(struct Curl_easy *data,
      the continuation data contained within the curly brackets */
   ptr = memchr(ptr, '{', len);
   if(ptr) {
-    char *endptr;
-    if(!curlx_strtoofft(ptr + 1, &endptr, 10, &size) &&
-       (endptr - ptr > 1 && *endptr == '}'))
+    ptr++;
+    if(!Curl_str_number(&ptr, &size, CURL_OFF_T_MAX) &&
+       !Curl_str_single(&ptr, '}'))
       parsed = TRUE;
   }
 
@@ -1787,14 +1786,8 @@ static CURLcode imap_setup_connection(struct Curl_easy *data,
                                       struct connectdata *conn)
 {
   /* Initialise the IMAP layer */
-  CURLcode result = imap_init(data);
-  if(result)
-    return result;
-
-  /* Clear the TLS upgraded flag */
-  conn->bits.tls_upgraded = FALSE;
-
-  return CURLE_OK;
+  (void)conn;
+  return imap_init(data);
 }
 
 /***********************************************************************

@@ -73,7 +73,7 @@
 #include "select.h"
 #include "warnless.h"
 #include "curl_path.h"
-
+#include "strparse.h"
 #include <curl_base64.h> /* for base64 encoding/decoding */
 #include <curl_sha256.h>
 
@@ -82,15 +82,6 @@
 #include "curl_printf.h"
 #include "curl_memory.h"
 #include "memdebug.h"
-
-#if LIBSSH2_VERSION_NUM >= 0x010206
-/* libssh2_sftp_statvfs and friends were added in 1.2.6 */
-#define HAS_STATVFS_SUPPORT 1
-#endif
-
-#define sftp_libssh2_realpath(s,p,t,m)                          \
-  libssh2_sftp_symlink_ex((s), (p), curlx_uztoui(strlen(p)),    \
-                          (t), (m), LIBSSH2_SFTP_REALPATH)
 
 /* Local functions: */
 static const char *sftp_libssh2_strerror(unsigned long err);
@@ -378,7 +369,7 @@ static void state(struct Curl_easy *data, sshstate nowstate)
   };
 
   /* a precaution to make sure the lists are in sync */
-  DEBUGASSERT(sizeof(names)/sizeof(names[0]) == SSH_LAST);
+  DEBUGASSERT(CURL_ARRAYSIZE(names) == SSH_LAST);
 
   if(sshc->state != nowstate) {
     infof(data, "SFTP %p state change from %s to %s",
@@ -403,23 +394,6 @@ static int sshkeycallback(CURL *easy,
   /* we only allow perfect matches, and we reject everything else */
   return (match != CURLKHMATCH_OK) ? CURLKHSTAT_REJECT : CURLKHSTAT_FINE;
 }
-
-/*
- * Earlier libssh2 versions did not have the ability to seek to 64-bit
- * positions with 32-bit size_t.
- */
-#define SFTP_SEEK(x,y) libssh2_sftp_seek64(x, (libssh2_uint64_t)y)
-
-/*
- * Earlier libssh2 versions did not do SCP properly beyond 32-bit sizes on
- * 32-bit architectures so we check of the necessary function is present.
- */
-#define SCP_SEND(a,b,c,d) libssh2_scp_send_ex(a, b, (int)(c), (size_t)d, 0, 0)
-
-/*
- * libssh2 1.2.8 fixed the problem with 32-bit ints used for sockets on win64.
- */
-#define session_startup(x,y) libssh2_session_handshake(x, y)
 
 static enum curl_khtype convert_ssh2_keytype(int sshkeytype)
 {
@@ -996,11 +970,11 @@ static CURLcode sftp_quote(struct Curl_easy *data,
    * Instead, we scan for commands used by OpenSSH's sftp program and call the
    * appropriate libssh2 functions.
    */
-  if(strncasecompare(cmd, "chgrp ", 6) ||
-     strncasecompare(cmd, "chmod ", 6) ||
-     strncasecompare(cmd, "chown ", 6) ||
-     strncasecompare(cmd, "atime ", 6) ||
-     strncasecompare(cmd, "mtime ", 6)) {
+  if(!strncmp(cmd, "chgrp ", 6) ||
+     !strncmp(cmd, "chmod ", 6) ||
+     !strncmp(cmd, "chown ", 6) ||
+     !strncmp(cmd, "atime ", 6) ||
+     !strncmp(cmd, "mtime ", 6)) {
     /* attribute change */
 
     /* sshc->quote_path1 contains the mode to set */
@@ -1016,8 +990,8 @@ static CURLcode sftp_quote(struct Curl_easy *data,
     state(data, SSH_SFTP_QUOTE_STAT);
     return result;
   }
-  if(strncasecompare(cmd, "ln ", 3) ||
-     strncasecompare(cmd, "symlink ", 8)) {
+  if(!strncmp(cmd, "ln ", 3) ||
+     !strncmp(cmd, "symlink ", 8)) {
     /* symbolic linking */
     /* sshc->quote_path1 is the source */
     /* get the destination */
@@ -1031,12 +1005,12 @@ static CURLcode sftp_quote(struct Curl_easy *data,
     state(data, SSH_SFTP_QUOTE_SYMLINK);
     return result;
   }
-  else if(strncasecompare(cmd, "mkdir ", 6)) {
+  else if(!strncmp(cmd, "mkdir ", 6)) {
     /* create dir */
     state(data, SSH_SFTP_QUOTE_MKDIR);
     return result;
   }
-  else if(strncasecompare(cmd, "rename ", 7)) {
+  else if(!strncmp(cmd, "rename ", 7)) {
     /* rename file */
     /* first param is the source path */
     /* second param is the dest. path */
@@ -1050,16 +1024,16 @@ static CURLcode sftp_quote(struct Curl_easy *data,
     state(data, SSH_SFTP_QUOTE_RENAME);
     return result;
   }
-  else if(strncasecompare(cmd, "rmdir ", 6)) {
+  else if(!strncmp(cmd, "rmdir ", 6)) {
     /* delete dir */
     state(data, SSH_SFTP_QUOTE_RMDIR);
     return result;
   }
-  else if(strncasecompare(cmd, "rm ", 3)) {
+  else if(!strncmp(cmd, "rm ", 3)) {
     state(data, SSH_SFTP_QUOTE_UNLINK);
     return result;
   }
-  else if(strncasecompare(cmd, "statvfs ", 8)) {
+  else if(!strncmp(cmd, "statvfs ", 8)) {
     state(data, SSH_SFTP_QUOTE_STATVFS);
     return result;
   }
@@ -1227,7 +1201,8 @@ sftp_upload_init(struct Curl_easy *data,
       Curl_pgrsSetUploadSize(data, data->state.infilesize);
     }
 
-    SFTP_SEEK(sshc->sftp_handle, data->state.resume_from);
+    libssh2_sftp_seek64(sshc->sftp_handle,
+                        (libssh2_uint64_t)data->state.resume_from);
   }
   if(data->state.infilesize > 0) {
     data->req.size = data->state.infilesize;
@@ -1370,7 +1345,7 @@ sftp_quote_stat(struct Curl_easy *data,
     sshc->acceptfail = TRUE;
   }
 
-  if(!strncasecompare(cmd, "chmod", 5)) {
+  if(!!strncmp(cmd, "chmod", 5)) {
     /* Since chown and chgrp only set owner OR group but libssh2 wants to set
      * them both at once, we need to obtain the current ownership first. This
      * takes an extra protocol round trip.
@@ -1392,8 +1367,11 @@ sftp_quote_stat(struct Curl_easy *data,
   }
 
   /* Now set the new attributes... */
-  if(strncasecompare(cmd, "chgrp", 5)) {
-    sshp->quote_attrs.gid = strtoul(sshc->quote_path1, NULL, 10);
+  if(!strncmp(cmd, "chgrp", 5)) {
+    const char *p = sshc->quote_path1;
+    curl_off_t gid;
+    (void)Curl_str_number(&p, &gid, ULONG_MAX);
+    sshp->quote_attrs.gid = (unsigned long)gid;
     sshp->quote_attrs.flags = LIBSSH2_SFTP_ATTR_UIDGID;
     if(sshp->quote_attrs.gid == 0 && !ISDIGIT(sshc->quote_path1[0]) &&
        !sshc->acceptfail) {
@@ -1401,18 +1379,23 @@ sftp_quote_stat(struct Curl_easy *data,
       goto fail;
     }
   }
-  else if(strncasecompare(cmd, "chmod", 5)) {
-    sshp->quote_attrs.permissions = strtoul(sshc->quote_path1, NULL, 8);
-    sshp->quote_attrs.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS;
+  else if(!strncmp(cmd, "chmod", 5)) {
+    curl_off_t perms;
+    const char *p = sshc->quote_path1;
     /* permissions are octal */
-    if(sshp->quote_attrs.permissions == 0 &&
-       !ISDIGIT(sshc->quote_path1[0])) {
+    if(Curl_str_octal(&p, &perms, 07777)) {
       failf(data, "Syntax error: chmod permissions not a number");
       goto fail;
     }
+
+    sshp->quote_attrs.permissions = (unsigned long)perms;
+    sshp->quote_attrs.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS;
   }
-  else if(strncasecompare(cmd, "chown", 5)) {
-    sshp->quote_attrs.uid = strtoul(sshc->quote_path1, NULL, 10);
+  else if(!strncmp(cmd, "chown", 5)) {
+    const char *p = sshc->quote_path1;
+    curl_off_t uid;
+    (void)Curl_str_number(&p, &uid, ULONG_MAX);
+    sshp->quote_attrs.uid = (unsigned long)uid;
     sshp->quote_attrs.flags = LIBSSH2_SFTP_ATTR_UIDGID;
     if(sshp->quote_attrs.uid == 0 && !ISDIGIT(sshc->quote_path1[0]) &&
        !sshc->acceptfail) {
@@ -1420,8 +1403,8 @@ sftp_quote_stat(struct Curl_easy *data,
       goto fail;
     }
   }
-  else if(strncasecompare(cmd, "atime", 5) ||
-          strncasecompare(cmd, "mtime", 5)) {
+  else if(!strncmp(cmd, "atime", 5) ||
+          !strncmp(cmd, "mtime", 5)) {
     time_t date = Curl_getdate_capped(sshc->quote_path1);
     bool fail = FALSE;
 
@@ -1438,7 +1421,7 @@ sftp_quote_stat(struct Curl_easy *data,
 #endif
     if(fail)
       goto fail;
-    if(strncasecompare(cmd, "atime", 5))
+    if(!strncmp(cmd, "atime", 5))
       sshp->quote_attrs.atime = (unsigned long)date;
     else /* mtime */
       sshp->quote_attrs.mtime = (unsigned long)date;
@@ -1528,7 +1511,7 @@ sftp_download_stat(struct Curl_easy *data,
         size = to - from + 1;
       }
 
-      SFTP_SEEK(sshc->sftp_handle, from);
+      libssh2_sftp_seek64(sshc->sftp_handle, (libssh2_uint64_t)from);
     }
     data->req.size = size;
     data->req.maxdownload = size;
@@ -1561,7 +1544,8 @@ sftp_download_stat(struct Curl_easy *data,
     data->req.maxdownload = attrs.filesize - data->state.resume_from;
     Curl_pgrsSetDownloadSize(data,
                              attrs.filesize - data->state.resume_from);
-    SFTP_SEEK(sshc->sftp_handle, data->state.resume_from);
+    libssh2_sftp_seek64(sshc->sftp_handle,
+                        (libssh2_uint64_t)data->state.resume_from);
   }
 
   /* Setup the actual download */
@@ -1686,7 +1670,8 @@ static CURLcode ssh_statemachine(struct Curl_easy *data, bool *block)
       FALLTHROUGH();
 
     case SSH_S_STARTUP:
-      rc = session_startup(sshc->ssh_session, conn->sock[FIRSTSOCKET]);
+      rc = libssh2_session_handshake(sshc->ssh_session,
+                                     conn->sock[FIRSTSOCKET]);
       if(rc == LIBSSH2_ERROR_EAGAIN) {
         break;
       }
@@ -2008,8 +1993,10 @@ static CURLcode ssh_statemachine(struct Curl_easy *data, bool *block)
       /*
        * Get the "home" directory
        */
-      rc = sftp_libssh2_realpath(sshc->sftp_session, ".",
-                                 sshp->readdir_filename, CURL_PATH_MAX);
+      rc = libssh2_sftp_symlink_ex(sshc->sftp_session,
+                                   ".", curlx_uztoui(strlen(".")),
+                                   sshp->readdir_filename, CURL_PATH_MAX,
+                                   LIBSSH2_SFTP_REALPATH);
       if(rc == LIBSSH2_ERROR_EAGAIN) {
         break;
       }
@@ -2245,7 +2232,6 @@ static CURLcode ssh_statemachine(struct Curl_easy *data, bool *block)
       state(data, SSH_SFTP_NEXT_QUOTE);
       break;
 
-#ifdef HAS_STATVFS_SUPPORT
     case SSH_SFTP_QUOTE_STATVFS:
     {
       LIBSSH2_SFTP_STATVFS statvfs;
@@ -2308,7 +2294,7 @@ static CURLcode ssh_statemachine(struct Curl_easy *data, bool *block)
       state(data, SSH_SFTP_NEXT_QUOTE);
       break;
     }
-#endif
+
     case SSH_SFTP_GETINFO:
     {
       if(data->set.get_filetime) {
@@ -2641,8 +2627,9 @@ static CURLcode ssh_statemachine(struct Curl_easy *data, bool *block)
        * directory in the path.
        */
       sshc->ssh_channel =
-        SCP_SEND(sshc->ssh_session, sshp->path, data->set.new_file_perms,
-                 data->state.infilesize);
+        libssh2_scp_send64(sshc->ssh_session, sshp->path,
+                           (int)data->set.new_file_perms,
+                           (libssh2_int64_t)data->state.infilesize, 0, 0);
       if(!sshc->ssh_channel) {
         int ssh_err;
         char *err_msg = NULL;
@@ -3274,11 +3261,9 @@ static CURLcode ssh_connect(struct Curl_easy *data, bool *done)
     conn->send[FIRSTSOCKET] = sftp_send;
   }
 
-  if(data->set.ssh_compression) {
-#if LIBSSH2_VERSION_NUM >= 0x010208
-    if(libssh2_session_flag(sshc->ssh_session, LIBSSH2_FLAG_COMPRESS, 1) < 0)
-#endif
-      infof(data, "Failed to enable compression for ssh session");
+  if(data->set.ssh_compression &&
+     libssh2_session_flag(sshc->ssh_session, LIBSSH2_FLAG_COMPRESS, 1) < 0) {
+    infof(data, "Failed to enable compression for ssh session");
   }
 
   if(data->set.str[STRING_SSH_KNOWNHOSTS]) {
@@ -3722,7 +3707,7 @@ void Curl_ssh_cleanup(void)
 
 void Curl_ssh_version(char *buffer, size_t buflen)
 {
-  (void)msnprintf(buffer, buflen, "libssh2/%s", CURL_LIBSSH2_VERSION);
+  (void)msnprintf(buffer, buflen, "libssh2/%s", libssh2_version(0));
 }
 
 /* The SSH session is associated with the *CONNECTION* but the callback user

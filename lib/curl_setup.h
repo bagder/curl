@@ -78,6 +78,12 @@
 #endif
 #endif
 
+/* Visual Studio 2008 is the minimum Visual Studio version we support.
+   Workarounds for older versions of Visual Studio have been removed. */
+#if defined(_MSC_VER) && (_MSC_VER < 1500)
+#error "Ancient versions of Visual Studio are no longer supported due to bugs."
+#endif
+
 #ifdef _MSC_VER
 /* Disable Visual Studio warnings: 4127 "conditional expression is constant" */
 #pragma warning(disable:4127)
@@ -112,6 +118,14 @@
 #      define CURL_WINDOWS_UWP
 #    endif
 #  endif
+#endif
+
+/* Avoid bogus format check warnings with mingw32ce gcc 4.4.0 in
+   C99 (-std=gnu99) mode */
+#if defined(__MINGW32CE__) && !defined(CURL_NO_FMT_CHECKS) && \
+  (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) && \
+  (defined(__GNUC__) && (__GNUC__ == 4) && (__GNUC_MINOR__ == 4))
+#define CURL_NO_FMT_CHECKS
 #endif
 
 /* Compatibility */
@@ -459,7 +473,9 @@
  */
 
 #ifdef USE_WIN32_LARGE_FILES
+#  ifdef HAVE_IO_H
 #  include <io.h>
+#  endif
 #  include <sys/types.h>
 #  include <sys/stat.h>
 #  undef  lseek
@@ -490,10 +506,12 @@
  */
 
 #if defined(_WIN32) && !defined(USE_WIN32_LARGE_FILES)
+#  ifdef HAVE_IO_H
 #  include <io.h>
+#  endif
 #  include <sys/types.h>
 #  include <sys/stat.h>
-#  ifndef _WIN32_WCE
+#  ifndef UNDER_CE
 #    undef  lseek
 #    define lseek(fdes,offset,whence)  _lseek(fdes, (long)offset, whence)
 #    define fstat(fdes,stp)            _fstat(fdes, stp)
@@ -668,7 +686,6 @@
 
 #  ifdef __minix
      /* Minix 3 versions up to at least 3.1.3 are missing these prototypes */
-     extern char *strtok_r(char *s, const char *delim, char **last);
      extern struct tm *gmtime_r(const time_t * const timep, struct tm *tmp);
 #  endif
 
@@ -680,16 +697,6 @@
 /*             resolver specialty compile-time defines              */
 /*         CURLRES_* defines to use in the host*.c sources          */
 /* ---------------------------------------------------------------- */
-
-/*
- * MSVC threads support requires a multi-threaded runtime library.
- * _beginthreadex() is not available in single-threaded ones.
- * Single-threaded option was last available in VS2005: _MSC_VER <= 1400
- */
-#if defined(_MSC_VER) && !defined(_MT)  /* available in _MSC_VER <= 1400 */
-#  undef USE_THREADS_POSIX
-#  undef USE_THREADS_WIN32
-#endif
 
 /*
  * Mutually exclusive CURLRES_* definitions.
@@ -834,6 +841,24 @@
 #include "curl_setup_once.h"
 #endif
 
+#ifdef UNDER_CE
+#define getenv curl_getenv  /* Windows CE does not support getenv() */
+#define raise(s) ((void)(s))
+/* Terrible workarounds to make Windows CE compile */
+#define errno 0
+#define CURL_SETERRNO(x) ((void)(x))
+#define EAGAIN 11
+#define ENOMEM 12
+#define EACCES 13
+#define EEXIST 17
+#define EISDIR 21
+#define ENOSPC 28
+#define ERANGE 34
+#define strerror(x) "?"
+#else
+#define CURL_SETERRNO(x) (errno = (x))
+#endif
+
 /*
  * Definition of our NOP statement Object-like macro
  */
@@ -935,6 +960,16 @@ endings either CRLF or LF so 't' is appropriate.
 
 #define CURL_ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
+#ifdef CURLDEBUG
+#define CURL_GETADDRINFO(host,serv,hint,res) \
+  curl_dbg_getaddrinfo(host, serv, hint, res, __LINE__, __FILE__)
+#define CURL_FREEADDRINFO(data) \
+  curl_dbg_freeaddrinfo(data, __LINE__, __FILE__)
+#else
+#define CURL_GETADDRINFO getaddrinfo
+#define CURL_FREEADDRINFO freeaddrinfo
+#endif
+
 /* Some versions of the Android NDK is missing the declaration */
 #if defined(HAVE_GETPWUID_R) && \
   defined(__ANDROID_API__) && (__ANDROID_API__ < 21)
@@ -985,10 +1020,16 @@ int getpwuid_r(uid_t uid, struct passwd *pwd, char *buf,
 #  endif
 #endif
 
+#ifdef USE_OPENSSL
 /* OpenSSLv3 marks DES, MD5 and ENGINE functions deprecated but we have no
    replacements (yet) so tell the compiler to not warn for them. */
-#ifdef USE_OPENSSL
-#define OPENSSL_SUPPRESS_DEPRECATED
+#  define OPENSSL_SUPPRESS_DEPRECATED
+#  ifdef _WIN32
+/* Silence LibreSSL warnings about wincrypt.h collision. Works in 3.8.2+ */
+#    ifndef LIBRESSL_DISABLE_OVERRIDE_WINCRYPT_DEFINES_WARNING
+#    define LIBRESSL_DISABLE_OVERRIDE_WINCRYPT_DEFINES_WARNING
+#    endif
+#  endif
 #endif
 
 #if defined(CURL_INLINE)

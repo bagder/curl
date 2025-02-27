@@ -84,8 +84,10 @@ use Digest::MD5 qw(md5);
 use List::Util 'sum';
 use I18N::Langinfo qw(langinfo CODESET);
 
+use serverhelp qw(
+    server_exe
+    );
 use pathhelp qw(
-    exe_ext
     sys_native_current_path
     );
 use processhelp qw(
@@ -510,7 +512,7 @@ sub checksystemfeatures {
     @version = <$versout>;
     close($versout);
 
-    open(my $disabledh, "-|", "server/disabled".exe_ext('TOOL'));
+    open(my $disabledh, "-|", server_exe('disabled', 'TOOL'));
     @disabled = <$disabledh>;
     close($disabledh);
 
@@ -541,7 +543,7 @@ sub checksystemfeatures {
                 $pwd = sys_native_current_path();
                 $feature{"win32"} = 1;
             }
-            if ($libcurl =~ /\s(winssl|schannel)\b/i) {
+            if ($libcurl =~ /\sschannel\b/i) {
                 $feature{"Schannel"} = 1;
                 $feature{"SSLpinning"} = 1;
             }
@@ -567,7 +569,7 @@ sub checksystemfeatures {
                 $feature{"sectransp"} = 1;
                 $feature{"SSLpinning"} = 1;
             }
-            elsif ($libcurl =~ /\sBoringSSL\b/i) {
+            elsif ($libcurl =~ /\s(BoringSSL|AWS-LC)\b/i) {
                 # OpenSSL compatible API
                 $feature{"OpenSSL"} = 1;
                 $feature{"SSLpinning"} = 1;
@@ -670,11 +672,15 @@ sub checksystemfeatures {
             $feature{"alt-svc"} = $feat =~ /alt-svc/i;
             # HSTS support
             $feature{"HSTS"} = $feat =~ /HSTS/i;
+            $feature{"asyn-rr"} = $feat =~ /asyn-rr/;
             if($feat =~ /AsynchDNS/i) {
-                if(!$feature{"c-ares"}) {
+                if(!$feature{"c-ares"} || $feature{"asyn-rr"}) {
                     # this means threaded resolver
                     $feature{"threaded-resolver"} = 1;
                     $resolver="threaded";
+
+                    # does not count as "real" c-ares
+                    $feature{"c-ares"} = 0;
                 }
             }
             # http2 enabled
@@ -698,7 +704,6 @@ sub checksystemfeatures {
             # Thread-safe init
             $feature{"threadsafe"} = $feat =~ /threadsafe/i;
             $feature{"HTTPSRR"} = $feat =~ /HTTPSRR/;
-            $feature{"asyn-rr"} = $feat =~ /asyn-rr/;
         }
         #
         # Test harness currently uses a non-stunnel server in order to
@@ -763,7 +768,7 @@ sub checksystemfeatures {
         # client has IPv6 support
 
         # check if the HTTP server has it!
-        my $cmd = "server/sws".exe_ext('SRV')." --version";
+        my $cmd = server_exe('sws')." --version";
         my @sws = `$cmd`;
         if($sws[0] =~ /IPv6/) {
             # HTTP server has IPv6 support!
@@ -771,7 +776,7 @@ sub checksystemfeatures {
         }
 
         # check if the FTP server has it!
-        $cmd = "server/sockfilt".exe_ext('SRV')." --version";
+        $cmd = server_exe('sockfilt')." --version";
         @sws = `$cmd`;
         if($sws[0] =~ /IPv6/) {
             # FTP server has IPv6 support!
@@ -781,7 +786,7 @@ sub checksystemfeatures {
 
     if($feature{"UnixSockets"}) {
         # client has Unix sockets support, check whether the HTTP server has it
-        my $cmd = "server/sws".exe_ext('SRV')." --version";
+        my $cmd = server_exe('sws')." --version";
         my @sws = `$cmd`;
         $http_unix = 1 if($sws[0] =~ /unix/);
     }
@@ -866,7 +871,7 @@ sub checksystemfeatures {
     }
     if($feature{"TrackMemory"} && $feature{"threaded-resolver"}) {
         logmsg("*\n",
-               "*** DISABLES memory tracking when using threaded resolver\n",
+               "*** DISABLES TrackMemory (memory tracking) when using threaded resolver\n",
                "*\n");
     }
 

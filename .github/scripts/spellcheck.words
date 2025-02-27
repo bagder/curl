@@ -251,8 +251,10 @@ Feltzing
 ffi
 filesize
 filesystem
+FindCURL
 FLOSS
 fnmatch
+footguns
 formpost
 formposts
 Fortnite
@@ -949,7 +951,6 @@ winbuild
 WinIDN
 WinLDAP
 winsock
-winssl
 Wireshark
 wolfSSH
 wolfSSL

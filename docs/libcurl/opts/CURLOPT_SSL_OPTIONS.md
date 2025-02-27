@@ -68,13 +68,13 @@ precedence. (Added in 7.70.0)
 ## CURLSSLOPT_NATIVE_CA
 
 Tell libcurl to use the operating system's native CA store for certificate
-verification. If you set this option and also set a CA certificate file or
-directory then during verification those certificates are searched in addition
-to the native CA store.
+verification. This option is independent of other CA certificate locations set
+at run time or build time. Those locations are searched in addition to the
+native CA store.
 
 Works with wolfSSL on Windows, Linux (Debian, Ubuntu, Gentoo, Fedora, RHEL),
-macOS, Android and iOS (added in 8.3.0), with GnuTLS (added in 8.5.0) or on
-Windows when built to use OpenSSL (Added in 7.71.0).
+macOS, Android and iOS (added in 8.3.0); with GnuTLS (added in 8.5.0) and with
+OpenSSL and its forks (LibreSSL, BoringSSL, etc) on Windows (Added in 7.71.0).
 
 ## CURLSSLOPT_AUTO_CLIENT_CERT
 
@@ -89,11 +89,11 @@ could be a privacy violation and unexpected.
 ## CURLSSLOPT_EARLYDATA
 
 Tell libcurl to try sending application data as TLS1.3 early data. This option
-is only supported for GnuTLS. This option works on a best effort basis,
+is supported for GnuTLS and wolfSSL. This option works on a best effort basis,
 in cases when it wasn't possible to send early data the request is resent
 normally post-handshake.
 This option does not work when using QUIC.
-(Added in 8.11.0)
+(Added in 8.11.0 for GnuTLS and 8.13.0 for wolfSSL)
 
 # DEFAULT
 

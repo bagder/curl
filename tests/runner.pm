@@ -126,7 +126,6 @@ our $tortalloc;
 
 # local variables
 my %oldenv;       # environment variables before test is started
-my $UNITDIR="./unit";
 my $CURLLOG="$LOGDIR/commands.log"; # all command lines run
 my $defserverlogslocktimeout = 5; # timeout to await server logs lock removal
 my $defpostcommanddelay = 0; # delay between command and postcheck sections
@@ -263,7 +262,7 @@ sub event_loop {
 #
 sub checktestcmd {
     my ($cmd)=@_;
-    my @testpaths=("$LIBDIR/.libs", "$LIBDIR");
+    my @testpaths=($LIBDIR . ".libs", "$LIBDIR");
     return checkcmd($cmd, @testpaths);
 }
 
@@ -922,18 +921,18 @@ sub singletest_run {
 
         if($tool =~ /^lib/) {
             if($bundle) {
-                $CMDLINE="$LIBDIR/libtests";
+                $CMDLINE=$LIBDIR . "libtests";
             }
             else {
-                $CMDLINE="$LIBDIR/$tool";
+                $CMDLINE=$LIBDIR . $tool;
             }
         }
         elsif($tool =~ /^unit/) {
             if($bundle) {
-                $CMDLINE="$UNITDIR/units";
+                $CMDLINE=$UNITDIR . "units";
             }
             else {
-                $CMDLINE="$UNITDIR/$tool";
+                $CMDLINE=$UNITDIR . $tool;
             }
         }
 
