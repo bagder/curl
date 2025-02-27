@@ -198,6 +198,17 @@ jobs:
           fi
 
       - name: 'toolchain versions'
+        if: ${{ contains(matrix.build.install_steps, 'pytest') }}
+        run: |
+          echo '----------------------------------'
+          /opt/homebrew/bin/httpd -v
+          echo '----------------------------------'
+          /opt/homebrew/bin/httpd -V
+          echo '----------------------------------'
+          /opt/homebrew/bin/httpd
+          echo '----------------------------------'
+
+      - name: 'toolchain versions'
         run: |
           [[ '${{ matrix.compiler }}' = 'llvm'* ]] && CC="$(brew --prefix ${{ matrix.compiler }})/bin/clang"
           [[ '${{ matrix.compiler }}' = 'gcc'* ]] && "${CC}" --print-sysroot
