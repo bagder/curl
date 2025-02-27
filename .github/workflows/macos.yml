@@ -270,6 +270,9 @@ jobs:
           echo '::group::raw'; cat bld/lib/curl_config.h || true; echo '::endgroup::'
           grep -F '#define' bld/lib/curl_config.h | sort || true
 
+      - name: 'test configs'
+        run: grep -H -v '^#' bld/tests/config bld/tests/http/config.ini || true
+
       - name: 'build-cert'
         if: contains(matrix.build.generate, '-DCURL_USE_SECTRANSP=ON') || contains(matrix.build.configure, '--with-secure-transport')
         run: |
